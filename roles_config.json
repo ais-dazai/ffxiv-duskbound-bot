@@ -4,12 +4,12 @@
   "default_prefix": "Cleared - ",
 
   "role_names": {
-    "Unending Coil of Bahamut": "UCoB",
-    "Weapon's Refrain": "UwU",
-    "Epic of Alexander": "TEA",
-    "Dragonsong's Reprise": "DSR",
-    "Omega Protocol": "TOP",
-    "Futures Rewritten": "FRU",
-    "Dancing Mad": "DMU"
+    "Unending Coil of Bahamut": "UCoB Cleared",
+    "Weapon's Refrain": "UwU Cleared",
+    "Epic of Alexander": "TEA Cleared",
+    "Dragonsong's Reprise": "DSR Cleared",
+    "Omega Protocol": "TOP Cleared",
+    "Futures Rewritten": "FRU Cleared",
+    "Dancing Mad": "DMU Cleared"
   }
 }
