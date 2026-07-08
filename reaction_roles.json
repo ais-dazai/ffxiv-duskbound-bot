@@ -1,0 +1,30 @@
+{
+  "_comment": "Modifica liberamente titoli, descrizioni, emoji e nomi dei ruoli qui sotto. Ogni 'gruppo' diventa un messaggio separato nel canale, con una reazione per ogni ruolo. Le emoji devono essere tutte diverse all'interno dello stesso gruppo.",
+
+  "groups": {
+    "prog": {
+      "title": "⚔️ Prog Roles",
+      "description": "React to get the role for the Ultimate(s) you're progging.",
+      "roles": [
+        { "emoji": "1️⃣", "role_name": "Prog UCOB" },
+        { "emoji": "2️⃣", "role_name": "Prog UWU" },
+        { "emoji": "3️⃣", "role_name": "Prog TEA" },
+        { "emoji": "4️⃣", "role_name": "Prog DSR" },
+        { "emoji": "5️⃣", "role_name": "Prog TOP" },
+        { "emoji": "6️⃣", "role_name": "Prog FRU" },
+        { "emoji": "7️⃣", "role_name": "Prog DMU" }
+      ]
+    },
+    "job": {
+      "title": "🎭 Role Roles",
+      "description": "React to flag which role(s) you play.",
+      "roles": [
+        { "emoji": "🛡️", "role_name": "Tank" },
+        { "emoji": "❇️", "role_name": "Healer" },
+        { "emoji": "⚔️", "role_name": "Melee" },
+        { "emoji": "🔫", "role_name": "Phys Ranged" },
+        { "emoji": "🔮", "role_name": "Caster" }
+      ]
+    }
+  }
+}
