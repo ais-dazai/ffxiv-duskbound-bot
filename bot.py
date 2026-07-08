@@ -24,10 +24,9 @@ load_dotenv()
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 FFLOGS_CLIENT_ID = os.environ["FFLOGS_CLIENT_ID"]
 FFLOGS_CLIENT_SECRET = os.environ["FFLOGS_CLIENT_SECRET"]
-XIVAPI_KEY = os.environ.get("XIVAPI_KEY")  # optional, depends on the XIVAPI service
 
 fflogs = FFLogsClient(FFLOGS_CLIENT_ID, FFLOGS_CLIENT_SECRET)
-lodestone = LodestoneClient(XIVAPI_KEY)
+lodestone = LodestoneClient()
 storage = Storage()
 
 intents = discord.Intents.default()
