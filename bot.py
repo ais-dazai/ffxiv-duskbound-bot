@@ -33,6 +33,9 @@ storage = Storage()
 with open("roles_config.json", "r", encoding="utf-8") as f:
     ROLES_CONFIG = json.load(f)
 
+with open("reaction_roles.json", "r", encoding="utf-8") as f:
+    REACTION_ROLES_CONFIG = json.load(f)
+
 
 def resolve_role_name(encounter_name):
     """Turns an FFLogs encounter name into the Discord role name to use,
@@ -63,7 +66,15 @@ async def on_ready():
 @app_commands.describe(name="Character first and last name", server="Server/world name (e.g. Odin)")
 async def register(interaction: discord.Interaction, name: str, server: str):
     await interaction.response.defer(ephemeral=True)
-    char = lodestone.search_character(name, server)
+    try:
+        char = lodestone.search_character(name, server)
+    except Exception as e:
+        await interaction.followup.send(
+            f"Error contacting Lodestone: {e}\n"
+            f"This can happen if Lodestone is temporarily blocking automated requests. Try again in a minute.",
+            ephemeral=True,
+        )
+        return
     if not char:
         await interaction.followup.send(
             "I couldn't find any character with that name on that server. "
@@ -98,7 +109,15 @@ async def verify(interaction: discord.Interaction):
         await interaction.followup.send("You don't have a pending registration. Use `/register` first.", ephemeral=True)
         return
 
-    bio = lodestone.get_character_bio(pending["character"]["id"])
+    try:
+        bio = lodestone.get_character_bio(pending["character"]["id"])
+    except Exception as e:
+        await interaction.followup.send(
+            f"Error reading your Lodestone profile: {e}\n"
+            f"This can happen if Lodestone is temporarily blocking automated requests. Try again in a minute.",
+            ephemeral=True,
+        )
+        return
     if pending["code"] not in bio:
         await interaction.followup.send(
             "I couldn't find the code in your Lodestone bio. Make sure you saved it "
@@ -178,6 +197,112 @@ async def update_roles(interaction: discord.Interaction):
         await interaction.followup.send(f"Roles assigned for: {', '.join(assigned)} 🎉", ephemeral=True)
     else:
         await interaction.followup.send("No cleared Ultimates found on FFLogs for this character.", ephemeral=True)
+
+
+async def get_or_create_role(guild, role_name):
+    role = discord.utils.get(guild.roles, name=role_name)
+    if role is None:
+        role = await guild.create_role(name=role_name, reason="Reaction role setup")
+    return role
+
+
+@bot.tree.command(name="setup-reaction-roles", description="[Admin] Post a reaction-roles message in this channel")
+@app_commands.describe(group="Which group of roles to post (see reaction_roles.json)")
+@app_commands.choices(group=[
+    app_commands.Choice(name=key, value=key) for key in REACTION_ROLES_CONFIG.get("groups", {})
+])
+@app_commands.checks.has_permissions(manage_roles=True)
+async def setup_reaction_roles(interaction: discord.Interaction, group: app_commands.Choice[str]):
+    await interaction.response.defer(ephemeral=True)
+
+    group_data = REACTION_ROLES_CONFIG["groups"].get(group.value)
+    if not group_data:
+        await interaction.followup.send("Unknown group.", ephemeral=True)
+        return
+
+    lines = [f"{r['emoji']}  —  {r['role_name']}" for r in group_data["roles"]]
+    description = group_data.get("description", "")
+    text = f"**{group_data['title']}**\n{description}\n\n" + "\n".join(lines)
+
+    try:
+        message = await interaction.channel.send(text)
+        for r in group_data["roles"]:
+            await message.add_reaction(r["emoji"])
+    except discord.Forbidden:
+        await interaction.followup.send(
+            "I don't have permission to post or react in this channel. Check my permissions "
+            "('Send Messages', 'Add Reactions') and try again.",
+            ephemeral=True,
+        )
+        return
+
+    storage.set_reaction_message(message.id, group.value)
+    await interaction.followup.send("Reaction-roles message posted! ✅", ephemeral=True)
+
+
+@setup_reaction_roles.error
+async def setup_reaction_roles_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Roles' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
+
+
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.member is None or payload.member.bot:
+        return
+
+    group_key = storage.get_reaction_group(payload.message_id)
+    if not group_key:
+        return
+
+    group_data = REACTION_ROLES_CONFIG["groups"].get(group_key)
+    if not group_data:
+        return
+
+    emoji = str(payload.emoji)
+    for r in group_data["roles"]:
+        if r["emoji"] == emoji:
+            guild = bot.get_guild(payload.guild_id)
+            if guild is None:
+                return
+            role = await get_or_create_role(guild, r["role_name"])
+            try:
+                await payload.member.add_roles(role, reason="Reaction role")
+            except discord.Forbidden:
+                pass
+            return
+
+
+@bot.event
+async def on_raw_reaction_remove(payload):
+    group_key = storage.get_reaction_group(payload.message_id)
+    if not group_key:
+        return
+
+    group_data = REACTION_ROLES_CONFIG["groups"].get(group_key)
+    if not group_data:
+        return
+
+    emoji = str(payload.emoji)
+    for r in group_data["roles"]:
+        if r["emoji"] == emoji:
+            guild = bot.get_guild(payload.guild_id)
+            if guild is None:
+                return
+            member = guild.get_member(payload.user_id)
+            if member is None:
+                return
+            role = discord.utils.get(guild.roles, name=r["role_name"])
+            if role and role in member.roles:
+                try:
+                    await member.remove_roles(role, reason="Reaction role removed")
+                except discord.Forbidden:
+                    pass
+            return
 
 
 bot.run(DISCORD_TOKEN)
