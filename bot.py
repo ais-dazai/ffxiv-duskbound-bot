@@ -1,10 +1,10 @@
 """
-Bot Discord che:
-1. /registra   -> collega un personaggio FFXIV al tuo account Discord
-2. /verifica   -> conferma che il personaggio è davvero tuo (codice nella bio Lodestone)
-3. /aggiorna-ruoli -> controlla su FFLogs quali Ultimate hai clearato e ti assegna i ruoli
+Discord bot that:
+1. /register      -> links an FFXIV character to your Discord account
+2. /verify        -> confirms the character really is yours (code in Lodestone bio)
+3. /update-roles  -> checks FFLogs for cleared Ultimates and assigns matching roles
 
-Le variabili d'ambiente necessarie sono spiegate nel README.md e in .env.example.
+Required environment variables are explained in README.md and .env.example.
 """
 
 import os
@@ -24,7 +24,7 @@ load_dotenv()
 DISCORD_TOKEN = os.environ["DISCORD_TOKEN"]
 FFLOGS_CLIENT_ID = os.environ["FFLOGS_CLIENT_ID"]
 FFLOGS_CLIENT_SECRET = os.environ["FFLOGS_CLIENT_SECRET"]
-XIVAPI_KEY = os.environ.get("XIVAPI_KEY")  # opzionale, dipende dal servizio XIVAPI
+XIVAPI_KEY = os.environ.get("XIVAPI_KEY")  # optional, depends on the XIVAPI service
 
 fflogs = FFLogsClient(FFLOGS_CLIENT_ID, FFLOGS_CLIENT_SECRET)
 lodestone = LodestoneClient(XIVAPI_KEY)
@@ -42,18 +42,18 @@ def gen_code():
 @bot.event
 async def on_ready():
     await bot.tree.sync()
-    print(f"Bot connesso come {bot.user}")
+    print(f"Bot logged in as {bot.user}")
 
 
-@bot.tree.command(name="registra", description="Collega il tuo personaggio FFXIV al tuo account Discord")
-@app_commands.describe(nome="Nome e cognome del personaggio", server="Nome del server (es. Odin)")
-async def registra(interaction: discord.Interaction, nome: str, server: str):
+@bot.tree.command(name="register", description="Link your FFXIV character to your Discord account")
+@app_commands.describe(name="Character first and last name", server="Server/world name (e.g. Odin)")
+async def register(interaction: discord.Interaction, name: str, server: str):
     await interaction.response.defer(ephemeral=True)
-    char = lodestone.search_character(nome, server)
+    char = lodestone.search_character(name, server)
     if not char:
         await interaction.followup.send(
-            "Non ho trovato nessun personaggio con questo nome su questo server. "
-            "Controlla l'ortografia (nome e cognome) e riprova.",
+            "I couldn't find any character with that name on that server. "
+            "Check the spelling (first and last name) and try again.",
             ephemeral=True,
         )
         return
@@ -65,30 +65,30 @@ async def registra(interaction: discord.Interaction, nome: str, server: str):
         code,
     )
     await interaction.followup.send(
-        f"Trovato **{char['Name']}** su **{char['Server']}**.\n\n"
-        f"Per verificare che sia tuo:\n"
-        f"1. Vai sul tuo profilo Lodestone\n"
-        f"2. Modifica la sezione **Autopresentazione**\n"
-        f"3. Incolla temporaneamente questo codice:\n\n`{code}`\n\n"
-        f"4. Salva, aspetta un paio di minuti, poi torna qui e usa `/verifica`.\n\n"
-        f"Dopo la verifica puoi rimuovere il codice dalla bio.",
+        f"Found **{char['Name']}** on **{char['Server']}**.\n\n"
+        f"To verify this character is yours:\n"
+        f"1. Go to your Lodestone profile\n"
+        f"2. Edit the **Self-Introduction** section\n"
+        f"3. Temporarily paste this code:\n\n`{code}`\n\n"
+        f"4. Save, wait a couple of minutes, then come back here and use `/verify`.\n\n"
+        f"You can remove the code from your bio after verifying.",
         ephemeral=True,
     )
 
 
-@bot.tree.command(name="verifica", description="Conferma la verifica dopo aver inserito il codice sul Lodestone")
-async def verifica(interaction: discord.Interaction):
+@bot.tree.command(name="verify", description="Confirm verification after adding the code to your Lodestone bio")
+async def verify(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     pending = storage.get_pending(interaction.user.id)
     if not pending:
-        await interaction.followup.send("Non hai nessuna registrazione in corso. Usa prima `/registra`.", ephemeral=True)
+        await interaction.followup.send("You don't have a pending registration. Use `/register` first.", ephemeral=True)
         return
 
     bio = lodestone.get_character_bio(pending["character"]["id"])
     if pending["code"] not in bio:
         await interaction.followup.send(
-            "Non ho trovato il codice nella tua bio Lodestone. Assicurati di averlo salvato "
-            "e di aver aspettato qualche minuto (il Lodestone a volte è lento ad aggiornarsi), poi riprova.",
+            "I couldn't find the code in your Lodestone bio. Make sure you saved it "
+            "and waited a few minutes (Lodestone can be slow to update), then try again.",
             ephemeral=True,
         )
         return
@@ -96,24 +96,24 @@ async def verifica(interaction: discord.Interaction):
     storage.set_verified(interaction.user.id, pending["character"])
     storage.clear_pending(interaction.user.id)
     await interaction.followup.send(
-        f"Personaggio **{pending['character']['name']}** verificato! "
-        f"Ora usa `/aggiorna-ruoli` per ricevere i ruoli in base ai tuoi clear ultimate.",
+        f"Character **{pending['character']['name']}** verified! "
+        f"Now use `/update-roles` to get roles based on your cleared Ultimates.",
         ephemeral=True,
     )
 
 
-@bot.tree.command(name="aggiorna-ruoli", description="Controlla i tuoi clear ultimate su FFLogs e assegna i ruoli")
-async def aggiorna_ruoli(interaction: discord.Interaction):
+@bot.tree.command(name="update-roles", description="Check your cleared Ultimates on FFLogs and assign matching roles")
+async def update_roles(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
 
     if interaction.guild is None:
-        await interaction.followup.send("Questo comando va usato dentro al server, non in DM.", ephemeral=True)
+        await interaction.followup.send("This command must be used inside a server, not in DMs.", ephemeral=True)
         return
 
     char = storage.get_verified(interaction.user.id)
     if not char:
         await interaction.followup.send(
-            "Devi prima registrare e verificare un personaggio con `/registra` e `/verifica`.",
+            "You need to register and verify a character first with `/register` and `/verify`.",
             ephemeral=True,
         )
         return
@@ -121,7 +121,7 @@ async def aggiorna_ruoli(interaction: discord.Interaction):
     server_slug, server_region = fflogs.get_server_info(char["server"])
     if not server_slug:
         await interaction.followup.send(
-            f"Non riesco a trovare il server **{char['server']}** su FFLogs. Contatta un admin del server Discord.",
+            f"I can't find the server **{char['server']}** on FFLogs. Contact a Discord server admin.",
             ephemeral=True,
         )
         return
@@ -129,7 +129,7 @@ async def aggiorna_ruoli(interaction: discord.Interaction):
     try:
         encounters = fflogs.get_ultimate_encounters()
     except Exception as e:
-        await interaction.followup.send(f"Errore contattando FFLogs: {e}", ephemeral=True)
+        await interaction.followup.send(f"Error contacting FFLogs: {e}", ephemeral=True)
         return
 
     guild = interaction.guild
@@ -140,7 +140,7 @@ async def aggiorna_ruoli(interaction: discord.Interaction):
         try:
             cleared = fflogs.has_clear(char["name"], server_slug, server_region, enc["id"])
         except Exception as e:
-            print(f"Errore controllando {enc['name']}: {e}")
+            print(f"Error checking {enc['name']}: {e}")
             continue
 
         if cleared:
@@ -148,22 +148,22 @@ async def aggiorna_ruoli(interaction: discord.Interaction):
             role = discord.utils.get(guild.roles, name=role_name)
             if role is None:
                 try:
-                    role = await guild.create_role(name=role_name, reason="Ruolo automatico ultimate clear")
+                    role = await guild.create_role(name=role_name, reason="Automatic Ultimate clear role")
                 except discord.Forbidden:
                     await interaction.followup.send(
-                        "Non ho i permessi per creare ruoli. Assicurati che il ruolo del bot abbia "
-                        "il permesso 'Manage Roles' e sia posizionato in alto nella gerarchia.",
+                        "I don't have permission to create roles. Make sure the bot's role has "
+                        "'Manage Roles' permission and is positioned high enough in the role hierarchy.",
                         ephemeral=True,
                     )
                     return
             if role not in member.roles:
-                await member.add_roles(role, reason="Clear ultimate verificato su FFLogs")
+                await member.add_roles(role, reason="Ultimate clear verified on FFLogs")
             assigned.append(enc["name"])
 
     if assigned:
-        await interaction.followup.send(f"Ruoli assegnati per: {', '.join(assigned)} 🎉", ephemeral=True)
+        await interaction.followup.send(f"Roles assigned for: {', '.join(assigned)} 🎉", ephemeral=True)
     else:
-        await interaction.followup.send("Nessun clear ultimate trovato su FFLogs per questo personaggio.", ephemeral=True)
+        await interaction.followup.send("No cleared Ultimates found on FFLogs for this character.", ephemeral=True)
 
 
 bot.run(DISCORD_TOKEN)
