@@ -1,0 +1,14 @@
+{
+  "_comment": "Modifica liberamente i valori (i nomi dei ruoli Discord) qui sotto. Le chiavi a sinistra sono usate per riconoscere ogni Ultimate: non toccarle. Se un ultimate non è in questa lista, il bot userà comunque un nome di default automatico.",
+
+  "default_prefix": "Cleared - ",
+
+  "role_names": {
+    "Unending Coil of Bahamut": "UCoB Clear",
+    "Weapon's Refrain": "UwU Clear",
+    "Epic of Alexander": "TEA Clear",
+    "Dragonsong's Reprise": "DSR Clear",
+    "Omega Protocol": "TOP Clear",
+    "Futures Rewritten": "FRU Clear"
+  }
+}
