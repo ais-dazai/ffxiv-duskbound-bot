@@ -1,19 +1,22 @@
 """
-Client per le due API esterne usate dal bot:
+External API clients used by the bot:
 
-- FFLogsClient: interroga FFLogs (API v2, GraphQL) per sapere quali fight
-  Ultimate un personaggio ha già "clearato" (cioè per cui esiste almeno
-  un log con una kill registrata).
-- LodestoneClient: usa XIVAPI (wrapper pubblico del Lodestone) per cercare
-  un personaggio e leggerne la bio, usata per il processo di verifica.
+- FFLogsClient: queries FFLogs (API v2, GraphQL) to find out which Ultimate
+  fights a character has already cleared (i.e. has at least one logged kill).
+- LodestoneClient: reads character data directly from the official, public
+  Lodestone pages (na.finalfantasyxiv.com/lodestone). No API key needed -
+  Lodestone is Square Enix's own public website. We only read a couple of
+  pages per verification, so we stay well within reasonable, respectful use.
 """
 
 import time
 import requests
+from bs4 import BeautifulSoup
 
 FFLOGS_TOKEN_URL = "https://www.fflogs.com/oauth/token"
 FFLOGS_API_URL = "https://www.fflogs.com/api/v2/client"
-XIVAPI_BASE = "https://xivapi.com"
+LODESTONE_BASE = "https://na.finalfantasyxiv.com/lodestone"
+LODESTONE_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; FFXIVUltimateRolesBot/1.0)"}
 
 
 class FFLogsClient:
@@ -50,14 +53,14 @@ class FFLogsClient:
         resp.raise_for_status()
         data = resp.json()
         if "errors" in data:
-            raise RuntimeError(f"Errore FFLogs API: {data['errors']}")
+            raise RuntimeError(f"FFLogs API error: {data['errors']}")
         return data["data"]
 
     def get_ultimate_encounters(self):
-        """Ritorna la lista di tutti i fight che appartengono a una zona
-        'Ultimate' su FFLogs (UCoB, UwU, TEA, DSR, TOP, FRU, e futuri).
-        Fatto dinamicamente così non serve aggiornare il codice quando
-        esce un nuovo ultimate."""
+        """Returns every fight belonging to an 'Ultimate' zone on FFLogs
+        (UCoB, UwU, TEA, DSR, TOP, FRU, and any future ones). Fetched
+        dynamically so the code doesn't need updating when a new Ultimate
+        is released."""
         query = """
         query {
           worldData {
@@ -80,9 +83,9 @@ class FFLogsClient:
         return encounters
 
     def get_server_info(self, server_name):
-        """Converte un nome di server FFXIV (es. 'Odin') nello slug e nella
-        regione richiesti da FFLogs. Recuperato dinamicamente, quindi
-        funziona per qualunque server senza doverlo aggiungere a mano."""
+        """Converts an FFXIV server name (e.g. 'Odin') into the slug and
+        region FFLogs needs. Fetched dynamically, so it works for any
+        server without having to hardcode a mapping."""
         if self._server_cache is None:
             query = """
             query {
@@ -135,33 +138,56 @@ class FFLogsClient:
 
 
 class LodestoneClient:
-    def __init__(self, api_key=None):
-        self.api_key = api_key
-
-    def _params(self, extra=None):
-        params = dict(extra) if extra else {}
-        if self.api_key:
-            params["private_key"] = self.api_key
-        return params
-
     def search_character(self, name, server):
+        params = {"q": name, "worldname": server}
         resp = requests.get(
-            f"{XIVAPI_BASE}/character/search",
-            params=self._params({"name": name, "server": server}),
+            f"{LODESTONE_BASE}/character/",
+            params=params,
+            headers=LODESTONE_HEADERS,
             timeout=15,
         )
         resp.raise_for_status()
-        data = resp.json()
-        results = data.get("Results", [])
-        return results[0] if results else None
+        soup = BeautifulSoup(resp.text, "html.parser")
+        entries = soup.select("a.entry__link")
+        if not entries:
+            return None
+
+        target_name = name.strip().lower()
+        best = None
+        for entry in entries:
+            name_el = entry.select_one(".entry__name")
+            if not name_el:
+                continue
+            if name_el.get_text(strip=True).lower() == target_name:
+                best = entry
+                break
+            if best is None:
+                best = entry  # fallback: first result if no exact match
+
+        if best is None:
+            return None
+
+        href = best.get("href", "")
+        parts = [p for p in href.split("/") if p]
+        char_id = parts[-1] if parts else None
+        name_el = best.select_one(".entry__name")
+        world_el = best.select_one(".entry__world")
+        world_text = world_el.get_text(strip=True) if world_el else server
+        world_name = world_text.split()[0] if world_text else server
+
+        return {
+            "ID": char_id,
+            "Name": name_el.get_text(strip=True) if name_el else name,
+            "Server": world_name,
+        }
 
     def get_character_bio(self, lodestone_id):
         resp = requests.get(
-            f"{XIVAPI_BASE}/character/{lodestone_id}",
-            params=self._params(),
+            f"{LODESTONE_BASE}/character/{lodestone_id}/",
+            headers=LODESTONE_HEADERS,
             timeout=15,
         )
         resp.raise_for_status()
-        data = resp.json()
-        char = data.get("Character", {})
-        return char.get("Bio", "") or ""
+        soup = BeautifulSoup(resp.text, "html.parser")
+        bio_el = soup.select_one(".character__selfintroduction")
+        return bio_el.get_text(strip=True) if bio_el else ""
