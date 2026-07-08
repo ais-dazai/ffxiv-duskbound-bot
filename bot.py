@@ -7,6 +7,7 @@ Discord bot that:
 Required environment variables are explained in README.md and .env.example.
 """
 
+import json
 import os
 import random
 import string
@@ -28,6 +29,20 @@ FFLOGS_CLIENT_SECRET = os.environ["FFLOGS_CLIENT_SECRET"]
 fflogs = FFLogsClient(FFLOGS_CLIENT_ID, FFLOGS_CLIENT_SECRET)
 lodestone = LodestoneClient()
 storage = Storage()
+
+with open("roles_config.json", "r", encoding="utf-8") as f:
+    ROLES_CONFIG = json.load(f)
+
+
+def resolve_role_name(encounter_name):
+    """Turns an FFLogs encounter name into the Discord role name to use,
+    based on roles_config.json. Falls back to a generic 'Cleared - X' name
+    for any Ultimate not listed in the config file."""
+    for keyword, custom_name in ROLES_CONFIG.get("role_names", {}).items():
+        if keyword.lower() in encounter_name.lower():
+            return custom_name
+    prefix = ROLES_CONFIG.get("default_prefix", "Cleared - ")
+    return f"{prefix}{encounter_name}"
 
 intents = discord.Intents.default()
 intents.members = True
@@ -143,7 +158,7 @@ async def update_roles(interaction: discord.Interaction):
             continue
 
         if cleared:
-            role_name = f"Cleared - {enc['name']}"
+            role_name = resolve_role_name(enc["name"])
             role = discord.utils.get(guild.roles, name=role_name)
             if role is None:
                 try:
