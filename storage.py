@@ -57,3 +57,14 @@ class Storage:
         with _LOCK:
             data = self._read()
             return data.get("verified", {}).get(str(discord_id))
+
+    def set_reaction_message(self, message_id, group_key):
+        with _LOCK:
+            data = self._read()
+            data.setdefault("reaction_messages", {})[str(message_id)] = group_key
+            self._write(data)
+
+    def get_reaction_group(self, message_id):
+        with _LOCK:
+            data = self._read()
+            return data.get("reaction_messages", {}).get(str(message_id))
