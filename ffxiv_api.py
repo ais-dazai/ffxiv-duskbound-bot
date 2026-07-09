@@ -79,7 +79,7 @@ class FFLogsClient:
         for zone in data["worldData"]["zones"]:
             if "ultimate" in zone["name"].lower():
                 for enc in zone["encounters"]:
-                    encounters.append({"id": enc["id"], "name": enc["name"]})
+                    encounters.append({"id": enc["id"], "name": enc["name"], "zone": zone["name"]})
         return encounters
 
     def get_server_info(self, server_name):
