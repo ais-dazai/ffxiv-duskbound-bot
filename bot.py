@@ -47,6 +47,43 @@ def resolve_role_name(encounter_name):
     prefix = ROLES_CONFIG.get("default_prefix", "Cleared - ")
     return f"{prefix}{encounter_name}"
 
+
+def build_ultimate_groups():
+    """Groups every FFLogs encounter into 'Ultimate groups' to check.
+
+    Primary source: the keywords already defined in roles_config.json
+    (reliable, and lets an admin control exactly what counts as an Ultimate).
+    Fallback: any additional encounter sitting in a zone whose name contains
+    'ultimate' but that isn't already covered by a keyword above - this
+    catches a brand new Ultimate automatically even before someone adds it
+    to roles_config.json, using a generic role name.
+
+    Each group can contain more than one FFLogs encounter id, because the
+    same fight sometimes exists under several zones (e.g. a current zone
+    and a retrospective 'Ultimates (Legacy)' zone). A character only needs
+    a clear under ANY of those ids to count.
+    """
+    all_encounters = fflogs.get_all_encounters()
+    groups = []
+    covered_ids = set()
+
+    for keyword, role_name in ROLES_CONFIG.get("role_names", {}).items():
+        ids = [e["id"] for e in all_encounters if keyword.lower() in e["name"].lower()]
+        if ids:
+            groups.append({"label": keyword, "role_name": role_name, "ids": ids})
+            covered_ids.update(ids)
+
+    prefix = ROLES_CONFIG.get("default_prefix", "Cleared - ")
+    seen_fallback_names = set()
+    for e in all_encounters:
+        if e["id"] in covered_ids:
+            continue
+        if "ultimate" in e["zone"].lower() and e["name"] not in seen_fallback_names:
+            groups.append({"label": e["name"], "role_name": f"{prefix}{e['name']}", "ids": [e["id"]]})
+            seen_fallback_names.add(e["name"])
+
+    return groups
+
 intents = discord.Intents.default()
 intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -160,7 +197,7 @@ async def update_roles(interaction: discord.Interaction):
         return
 
     try:
-        encounters = fflogs.get_ultimate_encounters()
+        groups = build_ultimate_groups()
     except Exception as e:
         await interaction.followup.send(f"Error contacting FFLogs: {e}", ephemeral=True)
         return
@@ -170,16 +207,16 @@ async def update_roles(interaction: discord.Interaction):
     assigned = []
     errors = []
 
-    for enc in encounters:
+    for group in groups:
         try:
-            cleared = fflogs.has_clear(char["name"], server_slug, server_region, enc["id"])
+            cleared = fflogs.has_clear_any(char["name"], server_slug, server_region, group["ids"])
         except Exception as e:
-            print(f"Error checking {enc['name']} (id {enc['id']}): {e}")
-            errors.append(f"{enc['name']} (id {enc['id']}): {e}")
+            print(f"Error checking {group['label']} (ids {group['ids']}): {e}")
+            errors.append(f"{group['label']}: {e}")
             continue
 
         if cleared:
-            role_name = resolve_role_name(enc["name"])
+            role_name = group["role_name"]
             role = discord.utils.get(guild.roles, name=role_name)
             if role is None:
                 try:
@@ -193,7 +230,7 @@ async def update_roles(interaction: discord.Interaction):
                     return
             if role not in member.roles:
                 await member.add_roles(role, reason="Ultimate clear verified on FFLogs")
-            assigned.append(f"{enc['name']} (id {enc['id']})")
+            assigned.append(role_name)
 
     lines = []
     if assigned:
@@ -206,22 +243,22 @@ async def update_roles(interaction: discord.Interaction):
     await interaction.followup.send("\n".join(lines), ephemeral=True)
 
 
-@bot.tree.command(name="debug-ultimates", description="[Admin] List every Ultimate zone/encounter FFLogs returns, for troubleshooting")
+@bot.tree.command(name="debug-ultimates", description="[Admin] List every Ultimate group FFLogs returns, for troubleshooting")
 @app_commands.checks.has_permissions(manage_roles=True)
 async def debug_ultimates(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
     try:
-        encounters = fflogs.get_ultimate_encounters()
+        groups = build_ultimate_groups()
     except Exception as e:
         await interaction.followup.send(f"Error contacting FFLogs: {e}", ephemeral=True)
         return
 
-    if not encounters:
-        await interaction.followup.send("FFLogs returned no Ultimate encounters at all.", ephemeral=True)
+    if not groups:
+        await interaction.followup.send("FFLogs returned no Ultimate groups at all.", ephemeral=True)
         return
 
-    lines = [f"id={e['id']} — {e['name']}  (zone: {e['zone']})" for e in encounters]
-    await interaction.followup.send("Encounters found:\n" + "\n".join(lines), ephemeral=True)
+    lines = [f"**{g['label']}** → role \"{g['role_name']}\" — ids: {g['ids']}" for g in groups]
+    await interaction.followup.send("Groups found:\n" + "\n".join(lines), ephemeral=True)
 
 
 @debug_ultimates.error
