@@ -56,11 +56,14 @@ class FFLogsClient:
             raise RuntimeError(f"FFLogs API error: {data['errors']}")
         return data["data"]
 
-    def get_ultimate_encounters(self):
-        """Returns every fight belonging to an 'Ultimate' zone on FFLogs
-        (UCoB, UwU, TEA, DSR, TOP, FRU, and any future ones). Fetched
-        dynamically so the code doesn't need updating when a new Ultimate
-        is released."""
+    def get_all_encounters(self):
+        """Returns every encounter on FFLogs, across every zone, together with
+        the zone it belongs to. We fetch everything and let the caller decide
+        which ones are Ultimates, because FFLogs zone naming is inconsistent:
+        older Ultimates get grouped into retrospective zones whose name
+        contains 'Ultimate' (e.g. 'Ultimates (Legacy)'), while the current
+        tier's Ultimate often lives in a zone named just after the raid
+        itself (e.g. 'Futures Rewritten', no 'Ultimate' in the name)."""
         query = """
         query {
           worldData {
@@ -77,9 +80,8 @@ class FFLogsClient:
         data = self.query(query)
         encounters = []
         for zone in data["worldData"]["zones"]:
-            if "ultimate" in zone["name"].lower():
-                for enc in zone["encounters"]:
-                    encounters.append({"id": enc["id"], "name": enc["name"], "zone": zone["name"]})
+            for enc in zone["encounters"]:
+                encounters.append({"id": enc["id"], "name": enc["name"], "zone": zone["name"]})
         return encounters
 
     def get_server_info(self, server_name):
@@ -135,6 +137,22 @@ class FFLogsClient:
             return False
         total_kills = rankings.get("totalKills", 0)
         return bool(total_kills and total_kills > 0)
+
+    def has_clear_any(self, char_name, server_slug, server_region, encounter_ids):
+        """Returns True if the character has a logged clear on ANY of the
+        given encounter ids. Raises the last error only if every single id
+        failed to query (so a valid 'no clear' on one id doesn't get hidden
+        behind an unrelated error on another id)."""
+        last_error = None
+        for encounter_id in encounter_ids:
+            try:
+                if self.has_clear(char_name, server_slug, server_region, encounter_id):
+                    return True
+            except Exception as e:
+                last_error = e
+        if last_error is not None:
+            raise last_error
+        return False
 
 
 class LodestoneClient:
