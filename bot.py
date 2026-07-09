@@ -168,12 +168,14 @@ async def update_roles(interaction: discord.Interaction):
     guild = interaction.guild
     member = guild.get_member(interaction.user.id)
     assigned = []
+    errors = []
 
     for enc in encounters:
         try:
             cleared = fflogs.has_clear(char["name"], server_slug, server_region, enc["id"])
         except Exception as e:
-            print(f"Error checking {enc['name']}: {e}")
+            print(f"Error checking {enc['name']} (id {enc['id']}): {e}")
+            errors.append(f"{enc['name']} (id {enc['id']}): {e}")
             continue
 
         if cleared:
@@ -191,12 +193,45 @@ async def update_roles(interaction: discord.Interaction):
                     return
             if role not in member.roles:
                 await member.add_roles(role, reason="Ultimate clear verified on FFLogs")
-            assigned.append(enc["name"])
+            assigned.append(f"{enc['name']} (id {enc['id']})")
 
+    lines = []
     if assigned:
-        await interaction.followup.send(f"Roles assigned for: {', '.join(assigned)} 🎉", ephemeral=True)
+        lines.append("Roles assigned for:\n" + "\n".join(f"• {a}" for a in assigned))
     else:
-        await interaction.followup.send("No cleared Ultimates found on FFLogs for this character.", ephemeral=True)
+        lines.append("No cleared Ultimates found on FFLogs for this character.")
+    if errors:
+        lines.append("\n⚠️ Couldn't check these (error below), so they were skipped:\n" + "\n".join(f"• {e}" for e in errors))
+
+    await interaction.followup.send("\n".join(lines), ephemeral=True)
+
+
+@bot.tree.command(name="debug-ultimates", description="[Admin] List every Ultimate zone/encounter FFLogs returns, for troubleshooting")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def debug_ultimates(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+    try:
+        encounters = fflogs.get_ultimate_encounters()
+    except Exception as e:
+        await interaction.followup.send(f"Error contacting FFLogs: {e}", ephemeral=True)
+        return
+
+    if not encounters:
+        await interaction.followup.send("FFLogs returned no Ultimate encounters at all.", ephemeral=True)
+        return
+
+    lines = [f"id={e['id']} — {e['name']}  (zone: {e['zone']})" for e in encounters]
+    await interaction.followup.send("Encounters found:\n" + "\n".join(lines), ephemeral=True)
+
+
+@debug_ultimates.error
+async def debug_ultimates_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Roles' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
 
 
 async def get_or_create_role(guild, role_name):
