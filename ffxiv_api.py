@@ -201,6 +201,31 @@ class LodestoneClient:
             "Server": world_name,
         }
 
+    def debug_search(self, name, server):
+        """Raw diagnostic info for troubleshooting: HTTP status, how many
+        <a class="entry__link"> elements were found, and the exact name/world
+        text extracted from each (repr()'d so hidden characters are visible)."""
+        params = {"q": name, "worldname": server}
+        resp = requests.get(
+            f"{LODESTONE_BASE}/character/",
+            params=params,
+            headers=LODESTONE_HEADERS,
+            timeout=15,
+        )
+        info = {"status_code": resp.status_code, "url": resp.url, "entries": []}
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        entries = soup.select("a.entry__link")
+        info["raw_entry_count"] = len(entries)
+        for entry in entries[:10]:
+            name_el = entry.select_one(".entry__name")
+            world_el = entry.select_one(".entry__world")
+            info["entries"].append({
+                "name": repr(name_el.get_text(strip=True)) if name_el else None,
+                "world": repr(world_el.get_text(strip=True)) if world_el else None,
+            })
+        return info
+
     def get_character_bio(self, lodestone_id):
         resp = requests.get(
             f"{LODESTONE_BASE}/character/{lodestone_id}/",
