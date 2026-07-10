@@ -1,16 +1,13 @@
 """
 Discord bot that:
-1. /register      -> links an FFXIV character to your Discord account
-2. /verify        -> confirms the character really is yours (code in Lodestone bio)
-3. /update-roles  -> checks FFLogs for cleared Ultimates and assigns matching roles
+1. /register      -> links an FFXIV character to your Discord account (no verification code, trust-based)
+2. /update-roles  -> checks FFLogs for cleared Ultimates and assigns matching roles
 
 Required environment variables are explained in README.md and .env.example.
 """
 
 import json
 import os
-import random
-import string
 
 import discord
 from discord import app_commands
@@ -89,10 +86,6 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-def gen_code():
-    return "FFXIV-" + "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
-
-
 @bot.event
 async def on_ready():
     await bot.tree.sync()
@@ -120,53 +113,12 @@ async def register(interaction: discord.Interaction, name: str, server: str):
         )
         return
 
-    code = gen_code()
-    storage.set_pending(
+    storage.set_verified(
         interaction.user.id,
         {"id": char["ID"], "name": char["Name"], "server": char["Server"]},
-        code,
     )
     await interaction.followup.send(
-        f"Found **{char['Name']}** on **{char['Server']}**.\n\n"
-        f"To verify this character is yours:\n"
-        f"1. Go to your Lodestone profile\n"
-        f"2. Edit the **Self-Introduction** section\n"
-        f"3. Temporarily paste this code:\n\n`{code}`\n\n"
-        f"4. Save, wait a couple of minutes, then come back here and use `/verify`.\n\n"
-        f"You can remove the code from your bio after verifying.",
-        ephemeral=True,
-    )
-
-
-@bot.tree.command(name="verify", description="Confirm verification after adding the code to your Lodestone bio")
-async def verify(interaction: discord.Interaction):
-    await interaction.response.defer(ephemeral=True)
-    pending = storage.get_pending(interaction.user.id)
-    if not pending:
-        await interaction.followup.send("You don't have a pending registration. Use `/register` first.", ephemeral=True)
-        return
-
-    try:
-        bio = lodestone.get_character_bio(pending["character"]["id"])
-    except Exception as e:
-        await interaction.followup.send(
-            f"Error reading your Lodestone profile: {e}\n"
-            f"This can happen if Lodestone is temporarily blocking automated requests. Try again in a minute.",
-            ephemeral=True,
-        )
-        return
-    if pending["code"] not in bio:
-        await interaction.followup.send(
-            "I couldn't find the code in your Lodestone bio. Make sure you saved it "
-            "and waited a few minutes (Lodestone can be slow to update), then try again.",
-            ephemeral=True,
-        )
-        return
-
-    storage.set_verified(interaction.user.id, pending["character"])
-    storage.clear_pending(interaction.user.id)
-    await interaction.followup.send(
-        f"Character **{pending['character']['name']}** verified! "
+        f"Linked **{char['Name']}** on **{char['Server']}** to your account.\n"
         f"Now use `/update-roles` to get roles based on your cleared Ultimates.",
         ephemeral=True,
     )
@@ -183,7 +135,7 @@ async def update_roles(interaction: discord.Interaction):
     char = storage.get_verified(interaction.user.id)
     if not char:
         await interaction.followup.send(
-            "You need to register and verify a character first with `/register` and `/verify`.",
+            "You need to register a character first with `/register`.",
             ephemeral=True,
         )
         return
