@@ -171,16 +171,18 @@ class LodestoneClient:
             return None
 
         target_name = name.strip().lower()
+        target_server = server.strip().lower()
         best = None
         for entry in entries:
             name_el = entry.select_one(".entry__name")
-            if not name_el:
+            world_el = entry.select_one(".entry__world")
+            if not name_el or not world_el:
                 continue
-            if name_el.get_text(strip=True).lower() == target_name:
+            entry_name = name_el.get_text(strip=True).lower()
+            entry_world = world_el.get_text(strip=True).lower()
+            if entry_name == target_name and entry_world.startswith(target_server):
                 best = entry
                 break
-            if best is None:
-                best = entry  # fallback: first result if no exact match
 
         if best is None:
             return None
