@@ -236,6 +236,42 @@ async def update_roles(interaction: discord.Interaction):
     await interaction.followup.send("\n".join(lines), ephemeral=True)
 
 
+@bot.tree.command(name="debug-search", description="[Admin] Show raw Lodestone search results for troubleshooting")
+@app_commands.describe(name="Character first and last name", server="Server/world name (e.g. Odin)")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def debug_search(interaction: discord.Interaction, name: str, server: str):
+    await interaction.response.defer(ephemeral=True)
+    try:
+        info = lodestone.debug_search(name, server)
+    except Exception as e:
+        await interaction.followup.send(f"Request failed: {e}", ephemeral=True)
+        return
+
+    lines = [
+        f"HTTP status: {info['status_code']}",
+        f"URL requested: {info['url']}",
+        f"Raw entry__link elements found: {info['raw_entry_count']}",
+        "",
+        "First results (name / world, repr'd to reveal hidden characters):",
+    ]
+    if not info["entries"]:
+        lines.append("(none)")
+    for e in info["entries"]:
+        lines.append(f"• name={e['name']} world={e['world']}")
+
+    await interaction.followup.send("\n".join(lines), ephemeral=True)
+
+
+@debug_search.error
+async def debug_search_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Roles' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
+
+
 @bot.tree.command(name="debug-ultimates", description="[Admin] List every Ultimate group FFLogs returns, for troubleshooting")
 @app_commands.checks.has_permissions(manage_roles=True)
 async def debug_ultimates(interaction: discord.Interaction):
