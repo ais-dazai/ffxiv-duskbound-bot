@@ -147,8 +147,9 @@ async def register(interaction: discord.Interaction, name: str, server: str):
         return
     if not char:
         await interaction.followup.send(
-            "I couldn't find any character with that name on that server. "
-            "Check the spelling (first and last name) and try again.",
+            "I couldn't find an exact match for that name on that server. "
+            "Double-check the spelling (first and last name, exactly as shown on your Lodestone profile) "
+            "and that the server name is correct.",
             ephemeral=True,
         )
         return
