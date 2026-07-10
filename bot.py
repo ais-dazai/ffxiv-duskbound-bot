@@ -86,6 +86,46 @@ intents.members = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
+class PostMessageModal(discord.ui.Modal, title="Post a message"):
+    content = discord.ui.TextInput(
+        label="Message content",
+        style=discord.TextStyle.paragraph,
+        placeholder="Type or paste the message here (supports multiple lines)...",
+        max_length=4000,
+        required=True,
+    )
+
+    def __init__(self, channel):
+        super().__init__()
+        self.channel = channel
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            await self.channel.send(str(self.content))
+        except discord.Forbidden:
+            await interaction.response.send_message(
+                "I don't have permission to send messages in that channel.", ephemeral=True
+            )
+            return
+        await interaction.response.send_message("Message posted ✅", ephemeral=True)
+
+
+@bot.tree.command(name="post-message", description="[Admin] Post a message as the bot in this channel")
+@app_commands.checks.has_permissions(manage_messages=True)
+async def post_message(interaction: discord.Interaction):
+    await interaction.response.send_modal(PostMessageModal(interaction.channel))
+
+
+@post_message.error
+async def post_message_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Messages' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
+
+
 @bot.event
 async def on_ready():
     await bot.tree.sync()
