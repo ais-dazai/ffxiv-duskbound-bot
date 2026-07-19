@@ -16,6 +16,9 @@ _LOCK = threading.Lock()
 class Storage:
     def __init__(self, path="data.json"):
         self.path = path
+        directory = os.path.dirname(self.path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
         if not os.path.exists(self.path):
             self._write({})
 
