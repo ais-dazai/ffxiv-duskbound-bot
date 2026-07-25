@@ -327,7 +327,9 @@ class LodestoneClient:
     def get_character_mounts(self, lodestone_id):
         """Returns the set of mount names this character owns, read from
         their public Lodestone mount page (mobile user agent, so names are
-        inlined without extra AJAX calls per item)."""
+        inlined without extra AJAX calls per item). Confirmed via manual
+        debugging: this page only lists mounts the character actually owns,
+        each one as <span class="mount__name">Mount Name</span>."""
         resp = requests.get(
             f"{LODESTONE_BASE}/character/{lodestone_id}/mount/",
             headers=LODESTONE_MOBILE_HEADERS,
@@ -337,11 +339,7 @@ class LodestoneClient:
         soup = BeautifulSoup(resp.text, "html.parser")
 
         names = set()
-        for el in soup.select(".character__item_icon"):
-            tooltip = el.get("data-tooltip")
-            if tooltip:
-                names.add(tooltip.strip())
-        for el in soup.select(".character__item_text"):
+        for el in soup.select(".mount__name"):
             text = el.get_text(strip=True)
             if text:
                 names.add(text)
