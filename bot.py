@@ -316,6 +316,50 @@ async def debug_mounts_error(interaction: discord.Interaction, error):
         raise error
 
 
+@bot.tree.command(name="debug-mounts-v2", description="[Admin] Deeper inspection of the raw mount page HTML, for troubleshooting")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def debug_mounts_v2(interaction: discord.Interaction, target_user: discord.Member = None):
+    await interaction.response.defer(ephemeral=True)
+    target_user = target_user or interaction.user
+    char = storage.get_verified(target_user.id)
+    if not char:
+        await interaction.followup.send(f"{target_user.display_name} hasn't registered a character.", ephemeral=True)
+        return
+
+    try:
+        info = lodestone.debug_mount_page_v2(char["id"])
+    except Exception as e:
+        await interaction.followup.send(f"Request failed: {e}", ephemeral=True)
+        return
+
+    lines = [f"HTML length: {info['html_length']} chars", "", "Keyword counts in raw HTML:"]
+    for kw, count in info["keyword_counts"].items():
+        lines.append(f"• {kw!r} → {count}")
+
+    lines.append("")
+    if info["snippets"]:
+        for snip in info["snippets"]:
+            lines.append(f"Raw HTML around {snip['needle']!r}:")
+            lines.append(f"```{snip['context']}```")
+    else:
+        lines.append("Didn't find 'Chocobo' anywhere in the raw HTML.")
+
+    text = "\n".join(lines)
+    if len(text) > 1900:
+        text = text[:1900] + "\n...(truncated)"
+    await interaction.followup.send(text, ephemeral=True)
+
+
+@debug_mounts_v2.error
+async def debug_mounts_v2_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Roles' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
+
+
 @bot.tree.command(name="debug-ultimates", description="[Admin] List every Ultimate group FFLogs returns, for troubleshooting")
 @app_commands.checks.has_permissions(manage_roles=True)
 async def debug_ultimates(interaction: discord.Interaction):
