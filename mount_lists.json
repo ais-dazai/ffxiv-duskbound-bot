@@ -1,76 +1,28 @@
 {
-  "_comment": "Nomi esatti dei mount per categoria, così come mostrati sul Lodestone. Se un nome qui dentro non corrisponde esattamente a come appare sul Lodestone (maiuscole, trattini, ecc.) il confronto fallirà per quel mount: in quel caso correggilo qui.",
+  "_comment": "Mount di Savage Raid ed Extreme Trial, organizzati per espansione. Se un nome non corrisponde esattamente a quello sul Lodestone, il confronto fallisce per quel mount: correggilo qui (il confronto ignora maiuscole/minuscole e spazi doppi/invisibili, ma il testo delle parole dev'essere giusto).",
 
-  "savage_raid": [
-    "Demi-Phoinix",
-    "Alte Roite",
-    "Sunforged",
-    "Ramuh",
-    "Megaloambystoma",
-    "Gobwalker",
-    "Model O",
-    "Monowheel S1",
-    "Air-Wheeler C9",
-    "Lowrider T1RANT",
-    "Arrhidaeus",
-    "Air Force",
-    "Skyslipper",
-    "Eden",
-    "Shroud of Darkness",
-    "Dais of Darkness"
-  ],
-
-  "extreme_trial": [
-    "Nightmare",
-    "Aithon",
-    "Xanthos",
-    "Gullfaxi",
-    "Enbarr",
-    "Markab",
-    "Boreas",
-    "Kirin",
-    "White Lanner",
-    "Rose Lanner",
-    "Round Lanner",
-    "Warring Lanner",
-    "Dark Lanner",
-    "Sophic Lanner",
-    "Demonic Lanner",
-    "Firebird",
-    "Blissful Kamuy",
-    "Reveling Kamuy",
-    "Legendary Kamuy",
-    "Auspicious Kamuy",
-    "Lunar Kamuy",
-    "Euphonious Kamuy",
-    "Hallowed Kamuy",
-    "Kamuy of the Nine Tails",
-    "Fae Gwiber",
-    "Innocent Gwiber",
-    "Shadow Gwiber",
-    "Ruby Gwiber",
-    "Gwiber of Light",
-    "Emerald Gwiber",
-    "Diamond Gwiber",
-    "Landerwaffe",
-    "Lynx of Eternal Darkness",
-    "Lynx of Divine Light",
-    "Bluefeather Lynx",
-    "Lynx of Imperious Wind",
-    "Lynx of Righteous Fire",
-    "Lynx of Fallen Shadow",
-    "Lynx of Abyssal Grief",
-    "Apocryphal Bahamut",
-    "Wings of Ruin",
-    "Wings of Resolve",
-    "Wings of Eternity",
-    "Wings of the Knighthood",
-    "Wings of Death",
-    "Wings of Mist",
-    "Wings of Nihility",
-    "Wings of Legacy",
-    "Rathalos",
-    "Seikret",
-    "Felyne Support Team Cart"
-  ]
+  "arr": {
+    "savage": [],
+    "extreme": ["Nightmare", "Aithon", "Xanthos", "Gullfaxi", "Enbarr", "Markab", "Boreas", "Kirin"]
+  },
+  "hw": {
+    "savage": ["Gobwalker", "Arrhidaeus"],
+    "extreme": ["White Lanner", "Rose Lanner", "Round Lanner", "Warring Lanner", "Dark Lanner", "Sophic Lanner", "Demonic Lanner", "Firebird"]
+  },
+  "stb": {
+    "savage": ["Alte Roite", "Model O", "Air Force"],
+    "extreme": ["Blissful Kamuy", "Reveling Kamuy", "Legendary Kamuy", "Auspicious Kamuy", "Lunar Kamuy", "Euphonious Kamuy", "Hallowed Kamuy", "Kamuy of the Nine Tails"]
+  },
+  "shb": {
+    "savage": ["Ramuh", "Skyslipper", "Eden"],
+    "extreme": ["Fae Gwiber", "Innocent Gwiber", "Shadow Gwiber", "Ruby Gwiber", "Gwiber of Light", "Emerald Gwiber", "Diamond Gwiber", "Landerwaffe", "Lynx of Eternal Darkness", "Lynx of Divine Light"]
+  },
+  "ew": {
+    "savage": ["Demi-Phoinix", "Sunforged", "Megaloambystoma", "Shroud of Darkness", "Dais of Darkness"],
+    "extreme": ["Bluefeather Lynx", "Lynx of Imperious Wind", "Lynx of Righteous Fire", "Lynx of Fallen Shadow", "Lynx of Abyssal Grief", "Apocryphal Bahamut"]
+  },
+  "dt": {
+    "savage": ["Monowheel S1", "Air-Wheeler C9", "Lowrider T1RANT"],
+    "extreme": ["Wings of Ruin", "Wings of Resolve", "Wings of Eternity", "Wings of Knighthood", "Wings of Death", "Wings of Mist", "Wings of Nihility", "Wings of Legacy", "Rathalos", "Seikret", "Felyne Support Team Cart"]
+  }
 }
