@@ -317,8 +317,8 @@ class LodestoneClient:
         for needle in ["Company Chocobo", "Chocobo"]:
             idx = html.find(needle)
             if idx != -1:
-                start = max(0, idx - 300)
-                end = min(len(html), idx + 300)
+                start = max(0, idx - 200)
+                end = min(len(html), idx + 3000)
                 info["snippets"].append({"needle": needle, "context": html[start:end]})
                 break
 
