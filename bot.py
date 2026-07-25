@@ -9,6 +9,8 @@ Required environment variables are explained in README.md and .env.example.
 import io
 import json
 import os
+import re
+import unicodedata
 
 import discord
 from discord import app_commands
@@ -240,10 +242,41 @@ async def update_roles(interaction: discord.Interaction):
     await interaction.followup.send("\n".join(lines), ephemeral=True)
 
 
-@bot.tree.command(name="my-mounts", description="Show which Savage raid / Extreme trial mounts you own")
-async def my_mounts(interaction: discord.Interaction, target_user: discord.Member = None):
+EXPANSION_LABELS = {
+    "arr": "A Realm Reborn",
+    "hw": "Heavensward",
+    "stb": "Stormblood",
+    "shb": "Shadowbringers",
+    "ew": "Endwalker",
+    "dt": "Dawntrail",
+}
+
+
+def normalize_mount_name(name):
+    """Normalizes a mount name for comparison: fixes Unicode variants (e.g.
+    non-breaking spaces that look identical to regular spaces but aren't),
+    collapses any run of whitespace to a single space, and case-folds.
+    Without this, names that LOOK identical can fail to match."""
+    name = unicodedata.normalize("NFKC", name)
+    name = re.sub(r"\s+", " ", name).strip()
+    return name.casefold()
+
+
+@bot.tree.command(name="my-mounts", description="Show which Savage raid / Extreme trial mounts you own, by expansion")
+@app_commands.describe(expansion="Which expansion to show (leave empty for all)")
+@app_commands.choices(expansion=[
+    app_commands.Choice(name="All expansions", value="all"),
+    app_commands.Choice(name="A Realm Reborn", value="arr"),
+    app_commands.Choice(name="Heavensward", value="hw"),
+    app_commands.Choice(name="Stormblood", value="stb"),
+    app_commands.Choice(name="Shadowbringers", value="shb"),
+    app_commands.Choice(name="Endwalker", value="ew"),
+    app_commands.Choice(name="Dawntrail", value="dt"),
+])
+async def my_mounts(interaction: discord.Interaction, expansion: app_commands.Choice[str] = None, target_user: discord.Member = None):
     await interaction.response.defer(ephemeral=True)
     target_user = target_user or interaction.user
+    exp_value = expansion.value if expansion else "all"
 
     char = storage.get_verified(target_user.id)
     if not char:
@@ -254,7 +287,7 @@ async def my_mounts(interaction: discord.Interaction, target_user: discord.Membe
         return
 
     try:
-        owned = lodestone.get_character_mounts(char["id"])
+        owned_raw = lodestone.get_character_mounts(char["id"])
     except Exception as e:
         await interaction.followup.send(
             f"Error reading the Lodestone mount page: {e}\n"
@@ -263,22 +296,36 @@ async def my_mounts(interaction: discord.Interaction, target_user: discord.Membe
         )
         return
 
-    def format_section(title, mount_list):
-        have = [m for m in mount_list if m in owned]
-        missing = [m for m in mount_list if m not in owned]
-        section = [f"**{title}** ({len(have)}/{len(mount_list)})"]
-        if have:
-            section.append("✅ " + ", ".join(have))
-        if missing:
-            section.append("❌ " + ", ".join(missing))
-        return "\n".join(section)
+    owned = {normalize_mount_name(n) for n in owned_raw}
 
-    savage_section = format_section("Savage Raid mounts", MOUNT_LISTS.get("savage_raid", []))
-    extreme_section = format_section("Extreme Trial mounts", MOUNT_LISTS.get("extreme_trial", []))
+    def format_category(label, mount_list):
+        if not mount_list:
+            return None
+        have = [m for m in mount_list if normalize_mount_name(m) in owned]
+        missing = [m for m in mount_list if normalize_mount_name(m) not in owned]
+        if not missing:
+            return f"{label} ({len(have)}/{len(mount_list)}) ✅ all obtained"
+        return f"{label} ({len(have)}/{len(mount_list)}) — missing: {', '.join(missing)}"
 
-    text = f"Mounts for **{char['name']}**:\n\n{savage_section}\n\n{extreme_section}"
+    expansions_to_show = [exp_value] if exp_value != "all" else list(MOUNT_LISTS.keys())
+    expansions_to_show = [e for e in expansions_to_show if not e.startswith("_")]
+
+    lines = [f"Mounts for **{char['name']}**:"]
+    for exp_key in expansions_to_show:
+        cats = MOUNT_LISTS.get(exp_key)
+        if not cats:
+            continue
+        exp_lines = [
+            format_category("Savage", cats.get("savage", [])),
+            format_category("Extreme", cats.get("extreme", [])),
+        ]
+        exp_lines = [l for l in exp_lines if l]
+        if exp_lines:
+            lines.append(f"\n**{EXPANSION_LABELS.get(exp_key, exp_key)}**")
+            lines.extend(exp_lines)
+
+    text = "\n".join(lines)
     if len(text) > 1900:
-        # Discord's 2000 char limit - send as a file instead if the full list is too long
         buffer = io.BytesIO(text.encode("utf-8"))
         await interaction.followup.send(
             "The full list is too long for a message, here it is as a file:",
