@@ -17,6 +17,13 @@ FFLOGS_TOKEN_URL = "https://www.fflogs.com/oauth/token"
 FFLOGS_API_URL = "https://www.fflogs.com/api/v2/client"
 LODESTONE_BASE = "https://na.finalfantasyxiv.com/lodestone"
 LODESTONE_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; FFXIVUltimateRolesBot/1.0)"}
+# The mount/minion pages only inline the item names when requested with a
+# mobile user agent - with a desktop UA the names are loaded separately via
+# AJAX per item, which we want to avoid (would mean dozens of extra requests).
+LODESTONE_MOBILE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
+                  "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+}
 
 
 class FFLogsClient:
@@ -217,7 +224,7 @@ class LodestoneClient:
         soup = BeautifulSoup(resp.text, "html.parser")
         entries = soup.select("a.entry__link")
         info["raw_entry_count"] = len(entries)
-        for entry in entries[:10]:
+        for entry in entries[:30]:
             name_el = entry.select_one(".entry__name")
             world_el = entry.select_one(".entry__world")
             info["entries"].append({
@@ -236,3 +243,69 @@ class LodestoneClient:
         soup = BeautifulSoup(resp.text, "html.parser")
         bio_el = soup.select_one(".character__selfintroduction")
         return bio_el.get_text(strip=True) if bio_el else ""
+
+    def debug_mount_page(self, lodestone_id):
+        """Raw diagnostic info for the mount page, used to figure out the
+        correct selectors before relying on this in a real command (the
+        mount page structure has never been tested live for this bot)."""
+        resp = requests.get(
+            f"{LODESTONE_BASE}/character/{lodestone_id}/mount/",
+            headers=LODESTONE_MOBILE_HEADERS,
+            timeout=15,
+        )
+        info = {
+            "status_code": resp.status_code,
+            "url": resp.url,
+            "html_length": len(resp.text),
+        }
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Try a handful of plausible selectors and report how many matches
+        # each gets, plus a sample of extracted text, so we can tell which
+        # one (if any) actually matches the real page structure.
+        candidate_selectors = [
+            ".character__item_icon",
+            ".character__inventory--Mounts .character__item_icon",
+            "li",
+            ".character__item_text",
+            "[data-tooltip]",
+        ]
+        info["selector_counts"] = {}
+        info["samples"] = {}
+        for sel in candidate_selectors:
+            found = soup.select(sel)
+            info["selector_counts"][sel] = len(found)
+            samples = []
+            for el in found[:8]:
+                text = el.get_text(strip=True)
+                tooltip = el.get("data-tooltip")
+                if text or tooltip:
+                    samples.append({"text": text or None, "tooltip": tooltip})
+            info["samples"][sel] = samples
+
+        return info
+
+    def get_character_mounts(self, lodestone_id):
+        """Returns the set of mount names this character owns, read from
+        their public Lodestone mount page (mobile user agent, so names are
+        inlined without extra AJAX calls per item)."""
+        resp = requests.get(
+            f"{LODESTONE_BASE}/character/{lodestone_id}/mount/",
+            headers=LODESTONE_MOBILE_HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        names = set()
+        for el in soup.select(".character__item_icon"):
+            tooltip = el.get("data-tooltip")
+            if tooltip:
+                names.add(tooltip.strip())
+        for el in soup.select(".character__item_text"):
+            text = el.get_text(strip=True)
+            if text:
+                names.add(text)
+
+        return names
