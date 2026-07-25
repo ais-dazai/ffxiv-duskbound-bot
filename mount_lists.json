@@ -1,28 +1,106 @@
 {
-  "_comment": "Mount di Savage Raid ed Extreme Trial, organizzati per espansione. Se un nome non corrisponde esattamente a quello sul Lodestone, il confronto fallisce per quel mount: correggilo qui (il confronto ignora maiuscole/minuscole e spazi doppi/invisibili, ma il testo delle parole dev'essere giusto).",
+  "_comment": "Mount di Savage Raid ed Extreme Trial, organizzati per espansione. 'name' deve corrispondere esattamente al nome sul Lodestone (il confronto ignora maiuscole/minuscole e spazi invisibili, ma le parole devono essere giuste). 'source' e' il testo mostrato tra parentesi nel comando /my-mounts, puoi riscriverlo come preferisci.",
 
   "arr": {
     "savage": [],
-    "extreme": ["Nightmare", "Aithon", "Xanthos", "Gullfaxi", "Enbarr", "Markab", "Boreas", "Kirin"]
+    "extreme": [
+      {"name": "Nightmare", "source": "Bowl of Embers / Howling Eye / The Navel (Ex)"},
+      {"name": "Aithon", "source": "The Bowl of Embers (Ex)"},
+      {"name": "Xanthos", "source": "The Howling Eye (Ex)"},
+      {"name": "Gullfaxi", "source": "The Navel (Ex)"},
+      {"name": "Enbarr", "source": "The Whorleater (Ex)"},
+      {"name": "Markab", "source": "The Striking Tree (Ex)"},
+      {"name": "Boreas", "source": "Akh Afah Amphitheatre (Ex)"},
+      {"name": "Kirin", "source": "Quest: collect Aithon/Boreas/Enbarr/Gullfaxi/Markab/Xanthos"}
+    ]
   },
   "hw": {
-    "savage": ["Gobwalker", "Arrhidaeus"],
-    "extreme": ["White Lanner", "Rose Lanner", "Round Lanner", "Warring Lanner", "Dark Lanner", "Sophic Lanner", "Demonic Lanner", "Firebird"]
+    "savage": [
+      {"name": "Gobwalker", "source": "Alexander - The Burden of the Father (Savage)"},
+      {"name": "Arrhidaeus", "source": "Alexander - The Soul of the Creator (Savage)"}
+    ],
+    "extreme": [
+      {"name": "White Lanner", "source": "The Limitless Blue (Ex) or 99 Expanse Totems"},
+      {"name": "Rose Lanner", "source": "Thok ast Thok (Ex) or 99 Hive Totems"},
+      {"name": "Round Lanner", "source": "Minstrel's Ballad: Thordan's Reign or 99 Heavens' Ward Helm Fragments"},
+      {"name": "Warring Lanner", "source": "Containment Bay S1T7 (Ex) or 99 Fiend Totems"},
+      {"name": "Dark Lanner", "source": "Minstrel's Ballad: Nidhogg's Rage or 99 Horde Totems"},
+      {"name": "Sophic Lanner", "source": "Containment Bay P1T6 (Ex)"},
+      {"name": "Demonic Lanner", "source": "Containment Bay Z1T9 (Ex)"},
+      {"name": "Firebird", "source": "Quest: collect all 7 Lanner mounts"}
+    ]
   },
   "stb": {
-    "savage": ["Alte Roite", "Model O", "Air Force"],
-    "extreme": ["Blissful Kamuy", "Reveling Kamuy", "Legendary Kamuy", "Auspicious Kamuy", "Lunar Kamuy", "Euphonious Kamuy", "Hallowed Kamuy", "Kamuy of the Nine Tails"]
+    "savage": [
+      {"name": "Alte Roite", "source": "O4 Savage"},
+      {"name": "Model O", "source": "O12 Savage"},
+      {"name": "Air Force", "source": "O8 Savage"}
+    ],
+    "extreme": [
+      {"name": "Blissful Kamuy", "source": "Lakshmi (Ex) or 99 totems"},
+      {"name": "Reveling Kamuy", "source": "Susano (Ex) or 99 totems"},
+      {"name": "Legendary Kamuy", "source": "Shinryu (Ex) or 99 totems"},
+      {"name": "Auspicious Kamuy", "source": "Byakko (Ex) or 99 totems"},
+      {"name": "Lunar Kamuy", "source": "Tsukuyomi (Ex)"},
+      {"name": "Euphonious Kamuy", "source": "Suzaku (Ex)"},
+      {"name": "Hallowed Kamuy", "source": "Seiryu (Ex)"},
+      {"name": "Kamuy of the Nine Tails", "source": "Quest: collect all 7 Stormblood wolf mounts"}
+    ]
   },
   "shb": {
-    "savage": ["Ramuh", "Skyslipper", "Eden"],
-    "extreme": ["Fae Gwiber", "Innocent Gwiber", "Shadow Gwiber", "Ruby Gwiber", "Gwiber of Light", "Emerald Gwiber", "Diamond Gwiber", "Landerwaffe", "Lynx of Eternal Darkness", "Lynx of Divine Light"]
+    "savage": [
+      {"name": "Ramuh", "source": "Eden's Gate: Refulgence (Savage)"},
+      {"name": "Skyslipper", "source": "Eden's Gate: Sepulture (Savage)"},
+      {"name": "Eden", "source": "Eden's Promise: Eternity (Savage)"}
+    ],
+    "extreme": [
+      {"name": "Fae Gwiber", "source": "Titania (Ex)"},
+      {"name": "Innocent Gwiber", "source": "Innocence (Ex)"},
+      {"name": "Shadow Gwiber", "source": "Hades (Ex)"},
+      {"name": "Ruby Gwiber", "source": "Ruby Weapon (Ex)"},
+      {"name": "Gwiber of Light", "source": "The Seat of Sacrifice (Ex)"},
+      {"name": "Emerald Gwiber", "source": "Emerald Weapon (Ex)"},
+      {"name": "Diamond Gwiber", "source": "Diamond Weapon (Ex)"},
+      {"name": "Landerwaffe", "source": "Quest: collect all 7 Gwiber mounts"},
+      {"name": "Lynx of Eternal Darkness", "source": "Minstrel's Ballad: Zodiark's Fall"},
+      {"name": "Lynx of Divine Light", "source": "Minstrel's Ballad: Hydaelyn's Call"}
+    ]
   },
   "ew": {
-    "savage": ["Demi-Phoinix", "Sunforged", "Megaloambystoma", "Shroud of Darkness", "Dais of Darkness"],
-    "extreme": ["Bluefeather Lynx", "Lynx of Imperious Wind", "Lynx of Righteous Fire", "Lynx of Fallen Shadow", "Lynx of Abyssal Grief", "Apocryphal Bahamut"]
+    "savage": [
+      {"name": "Demi-Phoinix", "source": "Asphodelos: The Fourth Circle (Savage)"},
+      {"name": "Sunforged", "source": "Pandaemonium: Abyssos (Savage)"},
+      {"name": "Megaloambystoma", "source": "Anabaseios: The Twelfth Circle (Savage)"},
+      {"name": "Shroud of Darkness", "source": "99 Clouddark Demimateria I"},
+      {"name": "Dais of Darkness", "source": "75 Clouddark Demimateria II"}
+    ],
+    "extreme": [
+      {"name": "Bluefeather Lynx", "source": "Minstrel's Ballad: Endsinger's Aria"},
+      {"name": "Lynx of Imperious Wind", "source": "Storm's Crown (Ex)"},
+      {"name": "Lynx of Righteous Fire", "source": "Mount Ordeals (Ex)"},
+      {"name": "Lynx of Fallen Shadow", "source": "The Voidcast Dais (Ex)"},
+      {"name": "Lynx of Abyssal Grief", "source": "The Abyssal Fracture (Ex)"},
+      {"name": "Apocryphal Bahamut", "source": "Quest: collect all Lynx mounts"}
+    ]
   },
   "dt": {
-    "savage": ["Monowheel S1", "Air-Wheeler C9", "Lowrider T1RANT"],
-    "extreme": ["Wings of Ruin", "Wings of Resolve", "Wings of Eternity", "Wings of Knighthood", "Wings of Death", "Wings of Mist", "Wings of Nihility", "Wings of Legacy", "Rathalos", "Seikret", "Felyne Support Team Cart"]
+    "savage": [
+      {"name": "Monowheel S1", "source": "AAC Light-Heavyweight M4 (Savage)"},
+      {"name": "Air-Wheeler C9", "source": "AAC Cruiserweight M4 (Savage)"},
+      {"name": "Lowrider T1RANT", "source": "AAC Heavyweight M4 (Savage)"}
+    ],
+    "extreme": [
+      {"name": "Wings of Ruin", "source": "Worqor Lar Dor (Ex)"},
+      {"name": "Wings of Resolve", "source": "Everkeep (Ex)"},
+      {"name": "Wings of Eternity", "source": "Minstrel's Ballad: Sphene's Burden"},
+      {"name": "Wings of Knighthood", "source": "Patch 7.2 Extreme"},
+      {"name": "Wings of Death", "source": "Patch 7.3 Extreme"},
+      {"name": "Wings of Mist", "source": "Patch 7.4 Extreme"},
+      {"name": "Wings of Nihility", "source": "Patch 7.5 Extreme"},
+      {"name": "Wings of Legacy", "source": "Quest: collect all Wings mounts"},
+      {"name": "Rathalos", "source": "The Great Hunt (Ex) or 50 Rathalos Scale+"},
+      {"name": "Seikret", "source": "Monster Hunter quest: The White Wanderer"},
+      {"name": "Felyne Support Team Cart", "source": "99 Guardian Arkveld certificates"}
+    ]
   }
 }
