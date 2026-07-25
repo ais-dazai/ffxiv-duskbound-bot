@@ -298,43 +298,69 @@ async def my_mounts(interaction: discord.Interaction, expansion: app_commands.Ch
 
     owned = {normalize_mount_name(n) for n in owned_raw}
 
-    def format_category(label, mount_list):
-        if not mount_list:
-            return None
-        have = [m for m in mount_list if normalize_mount_name(m) in owned]
-        missing = [m for m in mount_list if normalize_mount_name(m) not in owned]
-        if not missing:
-            return f"{label} ({len(have)}/{len(mount_list)}) ✅ all obtained"
-        return f"{label} ({len(have)}/{len(mount_list)}) — missing: {', '.join(missing)}"
+    def format_field_value(mount_list):
+        lines = []
+        for m in mount_list:
+            check = "✅" if normalize_mount_name(m["name"]) in owned else "❌"
+            lines.append(f"{check} **{m['name']}** *({m['source']})*")
+        return "\n".join(lines)
 
     expansions_to_show = [exp_value] if exp_value != "all" else list(MOUNT_LISTS.keys())
     expansions_to_show = [e for e in expansions_to_show if not e.startswith("_")]
 
-    lines = [f"Mounts for **{char['name']}**:"]
+    embed = discord.Embed(
+        title=f"Mounts for {char['name']}",
+        color=discord.Color.gold(),
+    )
+
     for exp_key in expansions_to_show:
         cats = MOUNT_LISTS.get(exp_key)
         if not cats:
             continue
-        exp_lines = [
-            format_category("Savage", cats.get("savage", [])),
-            format_category("Extreme", cats.get("extreme", [])),
-        ]
-        exp_lines = [l for l in exp_lines if l]
-        if exp_lines:
-            lines.append(f"\n**{EXPANSION_LABELS.get(exp_key, exp_key)}**")
-            lines.extend(exp_lines)
 
-    text = "\n".join(lines)
-    if len(text) > 1900:
-        buffer = io.BytesIO(text.encode("utf-8"))
+        for cat_key, cat_label in (("savage", "Savage"), ("extreme", "Extreme")):
+            mount_list = cats.get(cat_key, [])
+            if not mount_list:
+                continue
+            have_count = sum(1 for m in mount_list if normalize_mount_name(m["name"]) in owned)
+            value = format_field_value(mount_list)
+            if len(value) > 1024:
+                value = value[:1000] + "\n...(truncated, use a single expansion to see the rest)"
+            embed.add_field(
+                name=f"{EXPANSION_LABELS.get(exp_key, exp_key)} — {cat_label} ({have_count}/{len(mount_list)})",
+                value=value,
+                inline=False,
+            )
+
+    if not embed.fields:
+        await interaction.followup.send("No mounts found for that selection.", ephemeral=True)
+        return
+
+    if len(embed.fields) > 25 or len(embed) > 5900:
+        # Too much for a single embed (Discord's hard limits) - fall back to a plain text file
+        lines = [f"Mounts for {char['name']}:\n"]
+        for exp_key in expansions_to_show:
+            cats = MOUNT_LISTS.get(exp_key)
+            if not cats:
+                continue
+            lines.append(f"\n{EXPANSION_LABELS.get(exp_key, exp_key)}")
+            for cat_key, cat_label in (("savage", "Savage"), ("extreme", "Extreme")):
+                mount_list = cats.get(cat_key, [])
+                if not mount_list:
+                    continue
+                lines.append(f"{cat_label}:")
+                for m in mount_list:
+                    check = "YES" if normalize_mount_name(m["name"]) in owned else "no"
+                    lines.append(f"  [{check}] {m['name']} ({m['source']})")
+        buffer = io.BytesIO("\n".join(lines).encode("utf-8"))
         await interaction.followup.send(
-            "The full list is too long for a message, here it is as a file:",
+            "The full list is too long to display, here it is as a file:",
             file=discord.File(buffer, filename="mounts.txt"),
             ephemeral=True,
         )
         return
 
-    await interaction.followup.send(text, ephemeral=True)
+    await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 @bot.tree.command(name="debug-search", description="[Admin] Show raw Lodestone search results for troubleshooting")
