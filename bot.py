@@ -34,6 +34,9 @@ with open("roles_config.json", "r", encoding="utf-8") as f:
 with open("reaction_roles.json", "r", encoding="utf-8") as f:
     REACTION_ROLES_CONFIG = json.load(f)
 
+with open("mount_lists.json", "r", encoding="utf-8") as f:
+    MOUNT_LISTS = json.load(f)
+
 
 def resolve_role_name(encounter_name):
     """Turns an FFLogs encounter name into the Discord role name to use,
@@ -235,6 +238,56 @@ async def update_roles(interaction: discord.Interaction):
         lines.append("\n⚠️ Couldn't check these (error below), so they were skipped:\n" + "\n".join(f"• {e}" for e in errors))
 
     await interaction.followup.send("\n".join(lines), ephemeral=True)
+
+
+@bot.tree.command(name="my-mounts", description="Show which Savage raid / Extreme trial mounts you own")
+async def my_mounts(interaction: discord.Interaction, target_user: discord.Member = None):
+    await interaction.response.defer(ephemeral=True)
+    target_user = target_user or interaction.user
+
+    char = storage.get_verified(target_user.id)
+    if not char:
+        if target_user.id == interaction.user.id:
+            await interaction.followup.send("You need to register a character first with `/register`.", ephemeral=True)
+        else:
+            await interaction.followup.send(f"{target_user.display_name} hasn't registered a character.", ephemeral=True)
+        return
+
+    try:
+        owned = lodestone.get_character_mounts(char["id"])
+    except Exception as e:
+        await interaction.followup.send(
+            f"Error reading the Lodestone mount page: {e}\n"
+            f"This can happen if Lodestone is temporarily blocking automated requests. Try again in a minute.",
+            ephemeral=True,
+        )
+        return
+
+    def format_section(title, mount_list):
+        have = [m for m in mount_list if m in owned]
+        missing = [m for m in mount_list if m not in owned]
+        section = [f"**{title}** ({len(have)}/{len(mount_list)})"]
+        if have:
+            section.append("✅ " + ", ".join(have))
+        if missing:
+            section.append("❌ " + ", ".join(missing))
+        return "\n".join(section)
+
+    savage_section = format_section("Savage Raid mounts", MOUNT_LISTS.get("savage_raid", []))
+    extreme_section = format_section("Extreme Trial mounts", MOUNT_LISTS.get("extreme_trial", []))
+
+    text = f"Mounts for **{char['name']}**:\n\n{savage_section}\n\n{extreme_section}"
+    if len(text) > 1900:
+        # Discord's 2000 char limit - send as a file instead if the full list is too long
+        buffer = io.BytesIO(text.encode("utf-8"))
+        await interaction.followup.send(
+            "The full list is too long for a message, here it is as a file:",
+            file=discord.File(buffer, filename="mounts.txt"),
+            ephemeral=True,
+        )
+        return
+
+    await interaction.followup.send(text, ephemeral=True)
 
 
 @bot.tree.command(name="debug-search", description="[Admin] Show raw Lodestone search results for troubleshooting")
