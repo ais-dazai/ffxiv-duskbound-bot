@@ -6,6 +6,7 @@ Discord bot that:
 Required environment variables are explained in README.md and .env.example.
 """
 
+import io
 import json
 import os
 
@@ -336,18 +337,20 @@ async def debug_mounts_v2(interaction: discord.Interaction, target_user: discord
     for kw, count in info["keyword_counts"].items():
         lines.append(f"• {kw!r} → {count}")
 
-    lines.append("")
     if info["snippets"]:
         for snip in info["snippets"]:
-            lines.append(f"Raw HTML around {snip['needle']!r}:")
-            lines.append(f"```{snip['context']}```")
+            lines.append(f"\nRaw HTML around {snip['needle']!r} (see attached file for the full snippet)")
     else:
         lines.append("Didn't find 'Chocobo' anywhere in the raw HTML.")
 
     text = "\n".join(lines)
-    if len(text) > 1900:
-        text = text[:1900] + "\n...(truncated)"
-    await interaction.followup.send(text, ephemeral=True)
+
+    files = []
+    for i, snip in enumerate(info["snippets"]):
+        buffer = io.BytesIO(snip["context"].encode("utf-8"))
+        files.append(discord.File(buffer, filename=f"mount_html_snippet_{i}.txt"))
+
+    await interaction.followup.send(text, files=files, ephemeral=True)
 
 
 @debug_mounts_v2.error
