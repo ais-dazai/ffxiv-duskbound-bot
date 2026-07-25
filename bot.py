@@ -272,6 +272,50 @@ async def debug_search_error(interaction: discord.Interaction, error):
         raise error
 
 
+@bot.tree.command(name="debug-mounts", description="[Admin] Inspect the raw mount page structure, for troubleshooting")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def debug_mounts(interaction: discord.Interaction, target_user: discord.Member = None):
+    await interaction.response.defer(ephemeral=True)
+    target_user = target_user or interaction.user
+    char = storage.get_verified(target_user.id)
+    if not char:
+        await interaction.followup.send(f"{target_user.display_name} hasn't registered a character.", ephemeral=True)
+        return
+
+    try:
+        info = lodestone.debug_mount_page(char["id"])
+    except Exception as e:
+        await interaction.followup.send(f"Request failed: {e}", ephemeral=True)
+        return
+
+    lines = [
+        f"HTTP status: {info['status_code']}",
+        f"URL: {info['url']}",
+        f"HTML length: {info['html_length']} chars",
+        "",
+        "Selector match counts:",
+    ]
+    for sel, count in info["selector_counts"].items():
+        lines.append(f"• `{sel}` → {count} matches")
+        for sample in info["samples"].get(sel, [])[:3]:
+            lines.append(f"    e.g. text={sample['text']!r} tooltip={sample['tooltip']!r}")
+
+    text = "\n".join(lines)
+    if len(text) > 1900:
+        text = text[:1900] + "\n...(truncated)"
+    await interaction.followup.send(text, ephemeral=True)
+
+
+@debug_mounts.error
+async def debug_mounts_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Roles' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
+
+
 @bot.tree.command(name="debug-ultimates", description="[Admin] List every Ultimate group FFLogs returns, for troubleshooting")
 @app_commands.checks.has_permissions(manage_roles=True)
 async def debug_ultimates(interaction: discord.Interaction):
