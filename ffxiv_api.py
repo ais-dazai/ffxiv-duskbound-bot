@@ -286,6 +286,44 @@ class LodestoneClient:
 
         return info
 
+    def debug_mount_page_v2(self, lodestone_id):
+        """More targeted diagnostic: search the raw HTML for a mount almost
+        everyone owns ('Company Chocobo') and show the raw markup around it,
+        plus how often a handful of candidate class-name keywords appear
+        anywhere in the page. This tells us the real structure directly,
+        instead of guessing selectors blind."""
+        resp = requests.get(
+            f"{LODESTONE_BASE}/character/{lodestone_id}/mount/",
+            headers=LODESTONE_MOBILE_HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        html = resp.text
+
+        info = {"html_length": len(html), "keyword_counts": {}, "snippets": []}
+
+        keywords = [
+            "character__item",
+            "character__inventory",
+            "js__tooltip",
+            "data-tooltip",
+            "mount",
+            "Mount",
+            "Chocobo",
+        ]
+        for kw in keywords:
+            info["keyword_counts"][kw] = html.count(kw)
+
+        for needle in ["Company Chocobo", "Chocobo"]:
+            idx = html.find(needle)
+            if idx != -1:
+                start = max(0, idx - 300)
+                end = min(len(html), idx + 300)
+                info["snippets"].append({"needle": needle, "context": html[start:end]})
+                break
+
+        return info
+
     def get_character_mounts(self, lodestone_id):
         """Returns the set of mount names this character owns, read from
         their public Lodestone mount page (mobile user agent, so names are
