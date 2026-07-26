@@ -3,7 +3,7 @@
 
   "groups": {
     "prog": {
-      "title": "⚔️ Prog Roles",
+      "title": "# ⚔️ Prog Roles",
       "description": "React to get the role for the Ultimate(s) you're progging.",
       "roles": [
         { "emoji": "1️⃣", "role_name": "Prog UCOB" },
@@ -16,7 +16,7 @@
       ]
     },
     "job": {
-      "title": "🎭 Role Roles",
+      "title": "# 🎮 Position Roles",
       "description": "React to flag which role(s) you play.",
       "roles": [
         { "emoji": "Tank", "custom": true, "role_name": "Tank" },
