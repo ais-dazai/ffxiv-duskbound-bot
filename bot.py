@@ -538,14 +538,35 @@ async def setup_reaction_roles(interaction: discord.Interaction, group: app_comm
         await interaction.followup.send("Unknown group.", ephemeral=True)
         return
 
-    lines = [f"{r['emoji']}  —  {r['role_name']}" for r in group_data["roles"]]
+    guild = interaction.guild
+    resolved_emojis = []  # (display_str, reaction_target, role_name)
+    missing_custom = []
+    for r in group_data["roles"]:
+        if r.get("custom"):
+            custom_emoji = discord.utils.get(guild.emojis, name=r["emoji"])
+            if custom_emoji is None:
+                missing_custom.append(r["emoji"])
+                continue
+            resolved_emojis.append((str(custom_emoji), custom_emoji, r["role_name"]))
+        else:
+            resolved_emojis.append((r["emoji"], r["emoji"], r["role_name"]))
+
+    if missing_custom:
+        await interaction.followup.send(
+            f"I couldn't find these custom emoji on this server: {', '.join(missing_custom)}. "
+            f"Check the exact name (case-sensitive, no colons) in reaction_roles.json and try again.",
+            ephemeral=True,
+        )
+        return
+
+    lines = [f"{display}  —  {role_name}" for display, _, role_name in resolved_emojis]
     description = group_data.get("description", "")
     text = f"**{group_data['title']}**\n{description}\n\n" + "\n".join(lines)
 
     try:
         message = await interaction.channel.send(text)
-        for r in group_data["roles"]:
-            await message.add_reaction(r["emoji"])
+        for _, reaction_target, _ in resolved_emojis:
+            await message.add_reaction(reaction_target)
     except discord.Forbidden:
         await interaction.followup.send(
             "I don't have permission to post or react in this channel. Check my permissions "
@@ -581,7 +602,7 @@ async def on_raw_reaction_add(payload):
     if not group_data:
         return
 
-    emoji = str(payload.emoji)
+    emoji = payload.emoji.name
     for r in group_data["roles"]:
         if r["emoji"] == emoji:
             guild = bot.get_guild(payload.guild_id)
@@ -605,7 +626,7 @@ async def on_raw_reaction_remove(payload):
     if not group_data:
         return
 
-    emoji = str(payload.emoji)
+    emoji = payload.emoji.name
     for r in group_data["roles"]:
         if r["emoji"] == emoji:
             guild = bot.get_guild(payload.guild_id)
