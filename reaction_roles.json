@@ -6,13 +6,13 @@
       "title": "# ⚔️ Prog Roles",
       "description": "React to get the role for the Ultimate(s) you're progging.",
       "roles": [
-        { "emoji": "1️⃣", "role_name": "Prog UCOB" },
-        { "emoji": "2️⃣", "role_name": "Prog UWU" },
-        { "emoji": "3️⃣", "role_name": "Prog TEA" },
-        { "emoji": "4️⃣", "role_name": "Prog DSR" },
-        { "emoji": "5️⃣", "role_name": "Prog TOP" },
-        { "emoji": "6️⃣", "role_name": "Prog FRU" },
-        { "emoji": "7️⃣", "role_name": "Prog DMU" }
+        { "emoji": "ucob_totem", "custom": true, "role_name": "Prog UCOB" },
+        { "emoji": "uwu_totem", "custom": true, "role_name": "Prog UWU" },
+        { "emoji": "tea_totem", "custom": true, "role_name": "Prog TEA" },
+        { "emoji": "dsr_totem", "custom": true, "role_name": "Prog DSR" },
+        { "emoji": "top_totem", "custom": true, "role_name": "Prog TOP" },
+        { "emoji": "fru_totem", "custom": true, "role_name": "Prog FRU" },
+        { "emoji": "dmu_totem", "custom": true, "role_name": "Prog DMU" }
       ]
     },
     "job": {
