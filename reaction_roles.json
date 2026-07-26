@@ -1,10 +1,10 @@
 {
-  "_comment": "Modifica liberamente titoli, descrizioni, emoji e nomi dei ruoli qui sotto. Ogni 'gruppo' diventa un messaggio separato nel canale, con una reazione per ogni ruolo. Le emoji devono essere tutte diverse all'interno dello stesso gruppo.",
+  "_comment": "Modifica liberamente titoli, descrizioni, emoji e nomi dei ruoli qui sotto. Ogni 'gruppo' diventa un messaggio separato nel canale, con una reazione per ogni ruolo. Le emoji devono essere tutte diverse all'interno dello stesso gruppo. Per un'emoji NORMALE (es. 🛡️), scrivi solo il simbolo in 'emoji' e ometti 'custom' (o mettilo a false). Per un'emoji PERSONALIZZATA del server (quelle che hai caricato tu), scrivi in 'emoji' il nome esatto SENZA i due punti (es. se su Discord si chiama :Tank: scrivi 'Tank') e aggiungi \"custom\": true.",
 
   "groups": {
     "prog": {
-      "title": "# ⚔️ Progging Ultimates",
-      "description": "React to flag what Ultimate(s) you're progging.",
+      "title": "⚔️ Prog Roles",
+      "description": "React to get the role for the Ultimate(s) you're progging.",
       "roles": [
         { "emoji": "1️⃣", "role_name": "Prog UCOB" },
         { "emoji": "2️⃣", "role_name": "Prog UWU" },
@@ -16,14 +16,14 @@
       ]
     },
     "job": {
-      "title": "# 🎮 Roles you play",
+      "title": "🎭 Role Roles",
       "description": "React to flag which role(s) you play.",
       "roles": [
-        { "emoji": "🛡️", "role_name": "Tank" },
-        { "emoji": "❇️", "role_name": "Healer" },
-        { "emoji": "⚔️", "role_name": "Melee" },
-        { "emoji": "🔫", "role_name": "Phys Ranged" },
-        { "emoji": "🔮", "role_name": "Caster" }
+        { "emoji": "Tank", "custom": true, "role_name": "Tank" },
+        { "emoji": "Healer", "custom": true, "role_name": "Healer" },
+        { "emoji": "Melee", "custom": true, "role_name": "Melee" },
+        { "emoji": "PhysicalRanged", "custom": true, "role_name": "Phys Ranged" },
+        { "emoji": "Caster", "custom": true, "role_name": "Caster" }
       ]
     }
   }
