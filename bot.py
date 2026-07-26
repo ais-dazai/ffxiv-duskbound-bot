@@ -274,7 +274,7 @@ def normalize_mount_name(name):
     app_commands.Choice(name="Dawntrail", value="dt"),
 ])
 async def my_mounts(interaction: discord.Interaction, expansion: app_commands.Choice[str] = None, target_user: discord.Member = None):
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer(ephemeral=False)
     target_user = target_user or interaction.user
     exp_value = expansion.value if expansion else "all"
 
@@ -356,11 +356,11 @@ async def my_mounts(interaction: discord.Interaction, expansion: app_commands.Ch
         await interaction.followup.send(
             "The full list is too long to display, here it is as a file:",
             file=discord.File(buffer, filename="mounts.txt"),
-            ephemeral=True,
+            ephemeral=False,
         )
         return
 
-    await interaction.followup.send(embed=embed, ephemeral=True)
+    await interaction.followup.send(embed=embed, ephemeral=False)
 
 
 @bot.tree.command(name="debug-search", description="[Admin] Show raw Lodestone search results for troubleshooting")
