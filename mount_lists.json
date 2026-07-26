@@ -20,11 +20,11 @@
       {"name": "Arrhidaeus", "source": "Alexander - The Soul of the Creator (Savage)"}
     ],
     "extreme": [
-      {"name": "White Lanner", "source": "The Limitless Blue (Ex) or 99 Expanse Totems"},
-      {"name": "Rose Lanner", "source": "Thok ast Thok (Ex) or 99 Hive Totems"},
-      {"name": "Round Lanner", "source": "Minstrel's Ballad: Thordan's Reign or 99 Heavens' Ward Helm Fragments"},
-      {"name": "Warring Lanner", "source": "Containment Bay S1T7 (Ex) or 99 Fiend Totems"},
-      {"name": "Dark Lanner", "source": "Minstrel's Ballad: Nidhogg's Rage or 99 Horde Totems"},
+      {"name": "White Lanner", "source": "The Limitless Blue (Ex)"},
+      {"name": "Rose Lanner", "source": "Thok ast Thok (Ex)"},
+      {"name": "Round Lanner", "source": "Minstrel's Ballad: Thordan's Reign"},
+      {"name": "Warring Lanner", "source": "Containment Bay S1T7 (Ex)"},
+      {"name": "Dark Lanner", "source": "Minstrel's Ballad: Nidhogg's Rage"},
       {"name": "Sophic Lanner", "source": "Containment Bay P1T6 (Ex)"},
       {"name": "Demonic Lanner", "source": "Containment Bay Z1T9 (Ex)"},
       {"name": "Firebird", "source": "Quest: collect all 7 Lanner mounts"}
@@ -37,10 +37,10 @@
       {"name": "Air Force", "source": "O8 Savage"}
     ],
     "extreme": [
-      {"name": "Blissful Kamuy", "source": "Lakshmi (Ex) or 99 totems"},
-      {"name": "Reveling Kamuy", "source": "Susano (Ex) or 99 totems"},
-      {"name": "Legendary Kamuy", "source": "Shinryu (Ex) or 99 totems"},
-      {"name": "Auspicious Kamuy", "source": "Byakko (Ex) or 99 totems"},
+      {"name": "Blissful Kamuy", "source": "Lakshmi (Ex)"},
+      {"name": "Reveling Kamuy", "source": "Susano (Ex)"},
+      {"name": "Legendary Kamuy", "source": "Shinryu (Ex)"},
+      {"name": "Auspicious Kamuy", "source": "Byakko (Ex)"},
       {"name": "Lunar Kamuy", "source": "Tsukuyomi (Ex)"},
       {"name": "Euphonious Kamuy", "source": "Suzaku (Ex)"},
       {"name": "Hallowed Kamuy", "source": "Seiryu (Ex)"},
@@ -70,9 +70,7 @@
     "savage": [
       {"name": "Demi-Phoinix", "source": "Asphodelos: The Fourth Circle (Savage)"},
       {"name": "Sunforged", "source": "Pandaemonium: Abyssos (Savage)"},
-      {"name": "Megaloambystoma", "source": "Anabaseios: The Twelfth Circle (Savage)"},
-      {"name": "Shroud of Darkness", "source": "99 Clouddark Demimateria I"},
-      {"name": "Dais of Darkness", "source": "75 Clouddark Demimateria II"}
+      {"name": "Megaloambystoma", "source": "Anabaseios: The Twelfth Circle (Savage)"}
     ],
     "extreme": [
       {"name": "Bluefeather Lynx", "source": "Minstrel's Ballad: Endsinger's Aria"},
@@ -87,7 +85,9 @@
     "savage": [
       {"name": "Monowheel S1", "source": "AAC Light-Heavyweight M4 (Savage)"},
       {"name": "Air-Wheeler C9", "source": "AAC Cruiserweight M4 (Savage)"},
-      {"name": "Lowrider T1RANT", "source": "AAC Heavyweight M4 (Savage)"}
+      {"name": "Lowrider T1RANT", "source": "AAC Heavyweight M4 (Savage)"},
+      {"name": "Shroud of Darkness", "source": "The Cloud of Darkness (Chaotic)"},
+      {"name": "Dais of Darkness", "source": "The Cloud of Darkness (Chaotic)"}
     ],
     "extreme": [
       {"name": "Wings of Ruin", "source": "Worqor Lar Dor (Ex)"},
@@ -98,9 +98,9 @@
       {"name": "Wings of Mist", "source": "Hell on Rails (Ex) — Doomtrain"},
       {"name": "Wings of Nihility", "source": "The Unmaking (Ex) — Enuo"},
       {"name": "Wings of Legacy", "source": "Quest: collect all Wings mounts"},
-      {"name": "Rathalos", "source": "The Great Hunt (Ex) or 50 Rathalos Scale+"},
+      {"name": "Rathalos", "source": "The Great Hunt (Ex)"},
       {"name": "Seikret", "source": "Monster Hunter quest: The White Wanderer"},
-      {"name": "Felyne Support Team Cart", "source": "99 Guardian Arkveld certificates"}
+      {"name": "Felyne Support Team Cart", "source": "The Windward Wilds (Ex)"}
     ]
   }
 }
