@@ -132,6 +132,14 @@ async def post_message_error(interaction: discord.Interaction, error):
         raise error
 
 
+NO_HOMO_IMAGE_PATH = "assets/no_homo.png"
+
+
+@bot.tree.command(name="no_homo", description="Posts the image")
+async def no_homo(interaction: discord.Interaction):
+    await interaction.response.send_message(file=discord.File(NO_HOMO_IMAGE_PATH))
+
+
 @bot.event
 async def on_ready():
     await bot.tree.sync()
