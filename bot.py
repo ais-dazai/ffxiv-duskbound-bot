@@ -9,12 +9,14 @@ Required environment variables are explained in README.md and .env.example.
 import io
 import json
 import os
+import random
 import re
+import time
 import unicodedata
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
 from ffxiv_api import FFLogsClient, LodestoneClient
@@ -140,9 +142,236 @@ async def no_homo(interaction: discord.Interaction):
     await interaction.response.send_message(file=discord.File(NO_HOMO_IMAGE_PATH))
 
 
+GIVEAWAY_EMOJI = "🎉"
+
+
+@bot.tree.command(name="giveaway-create", description="[Admin] Start a giveaway in this channel")
+@app_commands.describe(
+    prize="What you're giving away (e.g. '10 million Gil')",
+    winners="How many winners",
+    days="Days from now until it ends (default 0)",
+    hours="Hours from now until it ends (default 0)",
+    minutes="Minutes from now until it ends (default 0)",
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def giveaway_create(
+    interaction: discord.Interaction,
+    prize: str,
+    winners: app_commands.Range[int, 1, 50],
+    days: app_commands.Range[int, 0, 365] = 0,
+    hours: app_commands.Range[int, 0, 23] = 0,
+    minutes: app_commands.Range[int, 0, 59] = 0,
+):
+    total_seconds = days * 86400 + hours * 3600 + minutes * 60
+    if total_seconds <= 0:
+        await interaction.response.send_message(
+            "Set a duration greater than zero (days/hours/minutes).", ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=True)
+    end_ts = int(time.time()) + total_seconds
+
+    text = (
+        f"🎉 **GIVEAWAY** 🎉\n\n"
+        f"**Prize:** {prize}\n"
+        f"**Winners:** {winners}\n"
+        f"**Ends:** <t:{end_ts}:R> (<t:{end_ts}:F>)\n\n"
+        f"React with {GIVEAWAY_EMOJI} to enter!"
+    )
+
+    try:
+        message = await interaction.channel.send(text)
+        await message.add_reaction(GIVEAWAY_EMOJI)
+    except discord.Forbidden:
+        await interaction.followup.send(
+            "I don't have permission to post or react in this channel.", ephemeral=True
+        )
+        return
+
+    storage.set_giveaway(message.id, {
+        "channel_id": interaction.channel.id,
+        "guild_id": interaction.guild.id,
+        "prize": prize,
+        "winners": winners,
+        "end_ts": end_ts,
+        "ended": False,
+    })
+
+    await interaction.followup.send("Giveaway started! 🎉", ephemeral=True)
+
+
+@giveaway_create.error
+async def giveaway_create_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Server' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
+
+
+@tasks.loop(seconds=30)
+async def check_giveaways():
+    active = storage.get_active_giveaways()
+    now = int(time.time())
+
+    for message_id_str, giveaway in active.items():
+        if giveaway["end_ts"] > now:
+            continue
+
+        message_id = int(message_id_str)
+        channel = bot.get_channel(giveaway["channel_id"])
+        if channel is None:
+            storage.mark_giveaway_ended(message_id)
+            continue
+
+        try:
+            message = await channel.fetch_message(message_id)
+        except (discord.NotFound, discord.Forbidden):
+            storage.mark_giveaway_ended(message_id)
+            continue
+
+        reaction = discord.utils.get(message.reactions, emoji=GIVEAWAY_EMOJI)
+        participants = []
+        if reaction is not None:
+            async for user in reaction.users():
+                if not user.bot:
+                    participants.append(user)
+
+        winners_count = giveaway["winners"]
+        if not participants:
+            await channel.send(f"🎉 The giveaway for **{giveaway['prize']}** ended, but nobody entered!")
+        else:
+            chosen = random.sample(participants, min(winners_count, len(participants)))
+            mentions = ", ".join(w.mention for w in chosen)
+            await channel.send(
+                f"🎉 Congratulations {mentions}! You won **{giveaway['prize']}**!"
+            )
+
+        storage.mark_giveaway_ended(message_id)
+
+
+@check_giveaways.before_loop
+async def before_check_giveaways():
+    await bot.wait_until_ready()
+
+
+def parse_message_id(text):
+    """Accepts either a raw message ID or a full Discord message link and
+    returns the message ID as an int, or None if it couldn't be parsed."""
+    text = text.strip()
+    if text.isdigit():
+        return int(text)
+    match = re.search(r"/channels/\d+/\d+/(\d+)", text)
+    if match:
+        return int(match.group(1))
+    return None
+
+
+@bot.tree.command(name="giveaway-cancel", description="[Admin] Cancel an active giveaway without picking winners")
+@app_commands.describe(message="The giveaway message ID or link")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def giveaway_cancel(interaction: discord.Interaction, message: str):
+    await interaction.response.defer(ephemeral=True)
+    message_id = parse_message_id(message)
+    if message_id is None:
+        await interaction.followup.send("That doesn't look like a valid message ID or link.", ephemeral=True)
+        return
+
+    giveaway = storage.get_giveaway(message_id)
+    if not giveaway:
+        await interaction.followup.send("I don't have a giveaway with that message ID.", ephemeral=True)
+        return
+    if giveaway.get("ended"):
+        await interaction.followup.send("That giveaway has already ended.", ephemeral=True)
+        return
+
+    storage.mark_giveaway_ended(message_id)
+
+    channel = bot.get_channel(giveaway["channel_id"])
+    if channel is not None:
+        try:
+            msg = await channel.fetch_message(message_id)
+            await msg.reply(f"🚫 This giveaway for **{giveaway['prize']}** was cancelled by an admin.")
+        except (discord.NotFound, discord.Forbidden):
+            pass
+
+    await interaction.followup.send("Giveaway cancelled.", ephemeral=True)
+
+
+@giveaway_cancel.error
+async def giveaway_cancel_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Server' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
+
+
+@bot.tree.command(name="giveaway-reroll", description="[Admin] Re-pick winner(s) for a giveaway")
+@app_commands.describe(
+    message="The giveaway message ID or link",
+    winners="How many winners to re-pick (default: same as original)",
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def giveaway_reroll(interaction: discord.Interaction, message: str, winners: app_commands.Range[int, 1, 50] = None):
+    await interaction.response.defer(ephemeral=True)
+    message_id = parse_message_id(message)
+    if message_id is None:
+        await interaction.followup.send("That doesn't look like a valid message ID or link.", ephemeral=True)
+        return
+
+    giveaway = storage.get_giveaway(message_id)
+    if not giveaway:
+        await interaction.followup.send("I don't have a giveaway with that message ID.", ephemeral=True)
+        return
+
+    channel = bot.get_channel(giveaway["channel_id"])
+    if channel is None:
+        await interaction.followup.send("I can't find the channel for that giveaway anymore.", ephemeral=True)
+        return
+
+    try:
+        msg = await channel.fetch_message(message_id)
+    except (discord.NotFound, discord.Forbidden):
+        await interaction.followup.send("I can't find that giveaway message anymore.", ephemeral=True)
+        return
+
+    reaction = discord.utils.get(msg.reactions, emoji=GIVEAWAY_EMOJI)
+    participants = []
+    if reaction is not None:
+        async for user in reaction.users():
+            if not user.bot:
+                participants.append(user)
+
+    if not participants:
+        await interaction.followup.send("Nobody entered this giveaway, nothing to reroll.", ephemeral=True)
+        return
+
+    winners_count = winners or giveaway["winners"]
+    chosen = random.sample(participants, min(winners_count, len(participants)))
+    mentions = ", ".join(w.mention for w in chosen)
+    await channel.send(f"🎉 Reroll! New winner(s) for **{giveaway['prize']}**: {mentions}")
+    await interaction.followup.send("Rerolled!", ephemeral=True)
+
+
+@giveaway_reroll.error
+async def giveaway_reroll_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Server' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
+
+
 @bot.event
 async def on_ready():
     await bot.tree.sync()
+    if not check_giveaways.is_running():
+        check_giveaways.start()
     print(f"Bot logged in as {bot.user}")
 
 
