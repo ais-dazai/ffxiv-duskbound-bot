@@ -71,3 +71,30 @@ class Storage:
         with _LOCK:
             data = self._read()
             return data.get("reaction_messages", {}).get(str(message_id))
+
+    def set_giveaway(self, message_id, giveaway_data):
+        with _LOCK:
+            data = self._read()
+            data.setdefault("giveaways", {})[str(message_id)] = giveaway_data
+            self._write(data)
+
+    def get_active_giveaways(self):
+        with _LOCK:
+            data = self._read()
+            return {
+                mid: g for mid, g in data.get("giveaways", {}).items()
+                if not g.get("ended")
+            }
+
+    def get_giveaway(self, message_id):
+        with _LOCK:
+            data = self._read()
+            return data.get("giveaways", {}).get(str(message_id))
+
+    def mark_giveaway_ended(self, message_id):
+        with _LOCK:
+            data = self._read()
+            giveaway = data.get("giveaways", {}).get(str(message_id))
+            if giveaway:
+                giveaway["ended"] = True
+                self._write(data)
