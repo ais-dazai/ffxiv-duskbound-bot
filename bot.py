@@ -142,7 +142,7 @@ async def no_homo(interaction: discord.Interaction):
     await interaction.response.send_message(file=discord.File(NO_HOMO_IMAGE_PATH))
 
 
-GIVEAWAY_EMOJI = "🎉"
+GIVEAWAY_EMOJI = "💛"
 
 
 @bot.tree.command(name="giveaway-create", description="[Admin] Start a giveaway in this channel")
@@ -152,6 +152,7 @@ GIVEAWAY_EMOJI = "🎉"
     days="Days from now until it ends (default 0)",
     hours="Hours from now until it ends (default 0)",
     minutes="Minutes from now until it ends (default 0)",
+    message="Optional extra text to show on the giveaway post (e.g. context, conditions)",
 )
 @app_commands.checks.has_permissions(manage_guild=True)
 async def giveaway_create(
@@ -161,6 +162,7 @@ async def giveaway_create(
     days: app_commands.Range[int, 0, 365] = 0,
     hours: app_commands.Range[int, 0, 23] = 0,
     minutes: app_commands.Range[int, 0, 59] = 0,
+    message: str = None,
 ):
     total_seconds = days * 86400 + hours * 3600 + minutes * 60
     if total_seconds <= 0:
@@ -172,27 +174,28 @@ async def giveaway_create(
     await interaction.response.defer(ephemeral=True)
     end_ts = int(time.time()) + total_seconds
 
-    text = (
-        f"🎉 **GIVEAWAY** 🎉\n\n"
-        f"**Prize:** {prize}\n"
-        f"**Winners:** {winners}\n"
-        f"**Ends:** <t:{end_ts}:R> (<t:{end_ts}:F>)\n\n"
-        f"React with {GIVEAWAY_EMOJI} to enter!"
+    text = f"🎉 **GIVEAWAY** 🎉\n\n**Prize:** {prize}\n**Winners:** {winners}\n"
+    if message:
+        text += f"\n{message}\n"
+    text += (
+        f"\n**Rules:** React with {GIVEAWAY_EMOJI} before <t:{end_ts}:F> (<t:{end_ts}:R>) to enter. "
+        f"You must react before the deadline to be eligible for the draw."
     )
 
     try:
-        message = await interaction.channel.send(text)
-        await message.add_reaction(GIVEAWAY_EMOJI)
+        giveaway_message = await interaction.channel.send(text)
+        await giveaway_message.add_reaction(GIVEAWAY_EMOJI)
     except discord.Forbidden:
         await interaction.followup.send(
             "I don't have permission to post or react in this channel.", ephemeral=True
         )
         return
 
-    storage.set_giveaway(message.id, {
+    storage.set_giveaway(giveaway_message.id, {
         "channel_id": interaction.channel.id,
         "guild_id": interaction.guild.id,
         "prize": prize,
+        "message": message,
         "winners": winners,
         "end_ts": end_ts,
         "ended": False,
