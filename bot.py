@@ -177,10 +177,7 @@ async def giveaway_create(
     text = f"🎉 **GIVEAWAY** 🎉\n\n**Prize:** {prize}\n**Winners:** {winners}\n"
     if message:
         text += f"\n{message}\n"
-    text += (
-        f"\n**Rules:** React with {GIVEAWAY_EMOJI} before <t:{end_ts}:F> (<t:{end_ts}:R>) to enter. "
-        f"You must react before the deadline to be eligible for the draw."
-    )
+    text += f"\n**Deadline:** React with {GIVEAWAY_EMOJI} before <t:{end_ts}:F> to enter the giveaway."
 
     try:
         giveaway_message = await interaction.channel.send(text)
