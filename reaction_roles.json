@@ -3,7 +3,7 @@
 
   "groups": {
     "prog": {
-      "title": "# ⚔️ Progging ultimates",
+      "title": "## ⚔️ FFXIV Progging ultimates",
       "description": "React to get the role for the Ultimate(s) you're progging.",
       "roles": [
         { "emoji": "ucob_totem", "custom": true, "role_name": "Prog UCOB" },
@@ -16,7 +16,7 @@
       ]
     },
     "job": {
-      "title": "# 🎮 Roles",
+      "title": "## 🎮 FFXIV Roles",
       "description": "React to flag which role(s) you play.",
       "roles": [
         { "emoji": "Tank", "custom": true, "role_name": "Tank" },
@@ -24,6 +24,15 @@
         { "emoji": "Melee", "custom": true, "role_name": "Melee" },
         { "emoji": "PhysicalRanged", "custom": true, "role_name": "Phys Ranged" },
         { "emoji": "Caster", "custom": true, "role_name": "Caster" }
+      ]
+    },
+    "games": {
+      "title": "## 🎲 Other Games",
+      "description": "React to get pinged for these other games.",
+      "roles": [
+        { "emoji": "🎮", "role_name": "Friend Slops" },
+        { "emoji": "z_league", "custom": true, "role_name": "League of Legends" },
+        { "emoji": "z_overwatch", "custom": true, "role_name": "Overwatch" }
       ]
     }
   }
