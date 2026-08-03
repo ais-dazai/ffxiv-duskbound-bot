@@ -1,7 +1,7 @@
 """
 Static reference data for every playable job: display name, abbreviation,
 local icon file (see assets/job_icons/), role category (used for the color
-of its level badge on the /me profile card), and the CSS selector used to
+of its level badge on the /profile card), and the CSS selector used to
 read that job's level off the Lodestone class_job page.
 
 The selectors are taken from the community-maintained, public-domain

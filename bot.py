@@ -2,6 +2,9 @@
 Discord bot that:
 1. /register      -> links an FFXIV character to your Discord account (no verification code, trust-based)
 2. /update-roles  -> checks FFLogs for cleared Ultimates and assigns matching roles
+3. /profile       -> posts an image card with Savage/Ultimate progress, job levels, minions/mounts, etc.
+   (named "profile" and not "me" because Discord's client already has a built-in "/me" command
+   that would otherwise shadow ours in the command picker)
 
 Required environment variables are explained in README.md and .env.example.
 """
@@ -96,7 +99,7 @@ def build_ultimate_groups():
 
 
 def short_ultimate_label(role_name):
-    """'UCoB Cleared' -> 'UCoB' - derives the compact label shown on the /me
+    """'UCoB Cleared' -> 'UCoB' - derives the compact label shown on the /profile
     card from the same role_names values already configured in
     roles_config.json, so there's nothing extra to maintain."""
     return re.sub(r"\s*Cleared\s*$", "", role_name).strip()
@@ -633,9 +636,9 @@ async def my_mounts(interaction: discord.Interaction, expansion: app_commands.Ch
     await interaction.followup.send(embed=embed, ephemeral=False)
 
 
-@bot.tree.command(name="me", description="Show your (or someone else's) FFXIV profile card")
+@bot.tree.command(name="profile", description="Show your (or someone else's) FFXIV profile card")
 @app_commands.describe(target_user="Show this member's card instead of your own")
-async def me(interaction: discord.Interaction, target_user: discord.Member = None):
+async def profile(interaction: discord.Interaction, target_user: discord.Member = None):
     await interaction.response.defer(ephemeral=False)
     target_user = target_user or interaction.user
 
@@ -663,19 +666,19 @@ async def me(interaction: discord.Interaction, target_user: discord.Member = Non
     try:
         job_levels = lodestone.get_class_job_levels(char["id"], [(j["key"], j["level_selector"]) for j in JOBS])
     except Exception as e:
-        print(f"/me: couldn't read class_job page for {char['name']}: {e}")
+        print(f"/profile: couldn't read class_job page for {char['name']}: {e}")
         job_levels = {}
 
     try:
         minion_count = lodestone.get_minion_count(char["id"])
     except Exception as e:
-        print(f"/me: couldn't read minion count for {char['name']}: {e}")
+        print(f"/profile: couldn't read minion count for {char['name']}: {e}")
         minion_count = None
 
     try:
         mount_count = lodestone.get_mount_count(char["id"])
     except Exception as e:
-        print(f"/me: couldn't read mount count for {char['name']}: {e}")
+        print(f"/profile: couldn't read mount count for {char['name']}: {e}")
         mount_count = None
 
     achievement_points = lodestone.get_achievement_points(char["id"])  # already best-effort internally
@@ -696,14 +699,14 @@ async def me(interaction: discord.Interaction, target_user: discord.Member = Non
                     "total": len(tier["fights"]),
                 })
         except Exception as e:
-            print(f"/me: couldn't check Savage progress for {char['name']}: {e}")
+            print(f"/profile: couldn't check Savage progress for {char['name']}: {e}")
 
         try:
             for group in build_ultimate_groups():
                 cleared = fflogs.has_clear_any(char["name"], server_slug, server_region, group["ids"])
                 ultimate_progress.append({"label": short_ultimate_label(group["role_name"]), "cleared": cleared})
         except Exception as e:
-            print(f"/me: couldn't check Ultimate progress for {char['name']}: {e}")
+            print(f"/profile: couldn't check Ultimate progress for {char['name']}: {e}")
 
     jobs_data_for_card = [
         {"display": j["display"], "icon": j["icon"], "role": j["role"], "level": job_levels.get(j["key"])}

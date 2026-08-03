@@ -1,5 +1,5 @@
 """
-Renders the /me profile card as a single PNG image, combining:
+Renders the /profile card as a single PNG image, combining:
 - the character's Lodestone portrait (left side)
 - the requesting/target Discord user's avatar
 - name, server/data center, current job + level

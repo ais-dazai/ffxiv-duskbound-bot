@@ -1,5 +1,5 @@
 {
-  "_comment": "Used by /me to show current-expansion Savage progress. Each tier is one raid release (Square Enix ships a new one roughly every 3-4 months); 'fights' lists the boss names for that tier IN ORDER (M1S, M2S, M3S, M4S, etc). Keywords are matched against FFLogs encounter names the same way roles_config.json matches Ultimates, so they don't need to be the exact FFLogs spelling - just a unique substring of the boss name. When a new tier releases, add a new entry at the end of 'tiers' with its 4 boss names; nothing else in the code needs to change.",
+  "_comment": "Used by /profile to show current-expansion Savage progress. Each tier is one raid release (Square Enix ships a new one roughly every 3-4 months); 'fights' lists the boss names for that tier IN ORDER (M1S, M2S, M3S, M4S, etc). Keywords are matched against FFLogs encounter names the same way roles_config.json matches Ultimates, so they don't need to be the exact FFLogs spelling - just a unique substring of the boss name. When a new tier releases, add a new entry at the end of 'tiers' with its 4 boss names; nothing else in the code needs to change.",
 
   "tiers": [
     {

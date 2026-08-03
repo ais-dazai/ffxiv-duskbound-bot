@@ -326,7 +326,7 @@ class LodestoneClient:
 
     def get_character_profile(self, lodestone_id):
         """Scrapes the main character page for the fields shown at the top of
-        the /me profile card: name, race/tribe/gender, world + data center,
+        the /profile card: name, race/tribe/gender, world + data center,
         the big character render (portrait), and the currently active
         class/job with its level. Selectors come from the community-maintained
         https://github.com/xivapi/lodestone-css-selectors project."""
