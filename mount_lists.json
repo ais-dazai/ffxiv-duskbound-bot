@@ -32,35 +32,36 @@
   },
   "stb": {
     "savage": [
-      {"name": "Alte Roite", "source": "O4 Savage"},
-      {"name": "Model O", "source": "O12 Savage"},
-      {"name": "Air Force", "source": "O8 Savage"}
+      {"name": "Alte Roite", "source": "Deltascape V4.0 (Savage)"},
+      {"name": "Model O", "source": "Sigmascape V4.0 (Savage)"},
+      {"name": "Air Force", "source": "Alphascape V4.0 (Savage)"}
     ],
     "extreme": [
-      {"name": "Blissful Kamuy", "source": "Lakshmi (Ex)"},
-      {"name": "Reveling Kamuy", "source": "Susano (Ex)"},
-      {"name": "Legendary Kamuy", "source": "Shinryu (Ex)"},
-      {"name": "Auspicious Kamuy", "source": "Byakko (Ex)"},
-      {"name": "Lunar Kamuy", "source": "Tsukuyomi (Ex)"},
-      {"name": "Euphonious Kamuy", "source": "Suzaku (Ex)"},
-      {"name": "Hallowed Kamuy", "source": "Seiryu (Ex)"},
+      {"name": "Blissful Kamuy", "source": "Emanation (Ex)"},
+      {"name": "Reveling Kamuy", "source": "The Pool of Tribute (Ex)"},
+      {"name": "Legendary Kamuy", "source": "The Minstrel's Ballad: Shinryu's Domain"},
+      {"name": "Auspicious Kamuy", "source": "The Jade Stoa (Ex)"},
+      {"name": "Lunar Kamuy", "source": "The Minstrel's Ballad: Tsukuyomi's Pain"},
+      {"name": "Rathalos", "source": "The Great Hunt (Ex)"},
+      {"name": "Euphonious Kamuy", "source": "Hells' Kier (Ex)"},
+      {"name": "Hallowed Kamuy", "source": "The Wreath of Snakes (Ex)"},
       {"name": "Kamuy of the Nine Tails", "source": "Quest: collect all 7 Stormblood wolf mounts"}
     ]
   },
   "shb": {
     "savage": [
-      {"name": "Ramuh", "source": "Eden's Gate: Refulgence (Savage)"},
       {"name": "Skyslipper", "source": "Eden's Gate: Sepulture (Savage)"},
+      {"name": "Ramuh", "source": "Eden's Verse: Refulgence (Savage)"},
       {"name": "Eden", "source": "Eden's Promise: Eternity (Savage)"}
     ],
     "extreme": [
-      {"name": "Fae Gwiber", "source": "Titania (Ex)"},
-      {"name": "Innocent Gwiber", "source": "Innocence (Ex)"},
-      {"name": "Shadow Gwiber", "source": "Hades (Ex)"},
-      {"name": "Ruby Gwiber", "source": "Ruby Weapon (Ex)"},
+      {"name": "Fae Gwiber", "source": "The Dancing Plague (Ex)"},
+      {"name": "Innocent Gwiber", "source": "The Crown of the Immaculate (Ex)"},
+      {"name": "Shadow Gwiber", "source": "The Minstrel's Ballad: Hades's Elegy"},
+      {"name": "Ruby Gwiber", "source": "Cinder Drift (Ex)"},
       {"name": "Gwiber of Light", "source": "The Seat of Sacrifice (Ex)"},
-      {"name": "Emerald Gwiber", "source": "Emerald Weapon (Ex)"},
-      {"name": "Diamond Gwiber", "source": "Diamond Weapon (Ex)"},
+      {"name": "Emerald Gwiber", "source": "Castrum Marinum (Ex)"},
+      {"name": "Diamond Gwiber", "source": "The Cloud Deck (Ex)"},
       {"name": "Landerwaffe", "source": "Quest: collect all 7 Gwiber mounts"},
       {"name": "Lynx of Eternal Darkness", "source": "Minstrel's Ballad: Zodiark's Fall"},
       {"name": "Lynx of Divine Light", "source": "Minstrel's Ballad: Hydaelyn's Call"}
@@ -69,10 +70,12 @@
   "ew": {
     "savage": [
       {"name": "Demi-Phoinix", "source": "Asphodelos: The Fourth Circle (Savage)"},
-      {"name": "Sunforged", "source": "Pandaemonium: Abyssos (Savage)"},
+      {"name": "Sunforged", "source": "Abyssos: The Eighth Circle (Savage)"},
       {"name": "Megaloambystoma", "source": "Anabaseios: The Twelfth Circle (Savage)"}
     ],
     "extreme": [
+      {"name": "Lynx of Eternal Darkness", "source": "The Minstrel's Ballad: Zodiark's Fall"},
+      {"name": "Lynx of Divine Light", "source": "The Minstrel's Ballad: Hydaelyn's Call"},
       {"name": "Bluefeather Lynx", "source": "Minstrel's Ballad: Endsinger's Aria"},
       {"name": "Lynx of Imperious Wind", "source": "Storm's Crown (Ex)"},
       {"name": "Lynx of Righteous Fire", "source": "Mount Ordeals (Ex)"},
@@ -83,7 +86,7 @@
   },
   "dt": {
     "savage": [
-      {"name": "Monowheel S1", "source": "AAC Light-Heavyweight M4 (Savage)"},
+      {"name": "Monowheel S1", "source": "AAC Light-heavyweight M4 (Savage)"},
       {"name": "Air-Wheeler C9", "source": "AAC Cruiserweight M4 (Savage)"},
       {"name": "Lowrider T1RANT", "source": "AAC Heavyweight M4 (Savage)"},
       {"name": "Shroud of Darkness", "source": "The Cloud of Darkness (Chaotic)"},
@@ -98,7 +101,6 @@
       {"name": "Wings of Mist", "source": "Hell on Rails (Ex) — Doomtrain"},
       {"name": "Wings of Nihility", "source": "The Unmaking (Ex) — Enuo"},
       {"name": "Wings of Legacy", "source": "Quest: collect all Wings mounts"},
-      {"name": "Rathalos", "source": "The Great Hunt (Ex)"},
       {"name": "Seikret", "source": "Monster Hunter quest: The White Wanderer"},
       {"name": "Felyne Support Team Cart", "source": "The Windward Wilds (Ex)"}
     ]
