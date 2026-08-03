@@ -42,7 +42,9 @@ COLOR_BG = (18, 19, 27)
 COLOR_BG_PANEL = (24, 26, 36)
 COLOR_TEXT = (240, 240, 245)
 COLOR_TEXT_DIM = (170, 172, 185)
-COLOR_CLEARED = (124, 77, 210)
+COLOR_CLEARED = (109, 72, 125)  # #6d487d - kept distinct from every FFLogs
+                                 # percentile color below so a cleared pill
+                                 # never gets confused with a parse-percentage pill
 COLOR_PARTIAL = (90, 92, 105)
 COLOR_NOT_CLEARED = (55, 57, 68)
 COLOR_PILL_BG = (36, 38, 50)
@@ -105,17 +107,25 @@ def _draw_progress_ring(draw, cx, cy, r, fraction, fg_color, bg_color):
 
 
 def _percentile_color(pct):
-    """Loosely mirrors FFLogs' own percentile color bands (grey/green/blue/
-    purple/orange), simplified to the card's existing palette."""
+    """FFLogs' own percentile color bands, matched exactly (these are the
+    same colors FFLogs shows on its own site):
+    Grey <25, Green 25-49, Blue 50-74, Purple 75-94, Orange 95-98,
+    Pink 99, Gold 100. `pct` should already be rounded to the nearest whole
+    number (the same rounding used for the displayed "NN%" text), so the
+    color always matches the number shown."""
+    if pct >= 100:
+        return (229, 204, 128)  # gold
+    if pct >= 99:
+        return (226, 104, 168)  # pink
     if pct >= 95:
-        return (200, 158, 60)  # gold
+        return (222, 139, 31)  # orange (#de8b1f - toned down from FFLogs' neon orange)
     if pct >= 75:
-        return (124, 77, 210)  # purple (same as COLOR_CLEARED)
+        return (163, 53, 238)  # purple
     if pct >= 50:
-        return (86, 130, 191)  # blue
+        return (33, 102, 191)  # blue (#2166bf - toned down from FFLogs' neon blue)
     if pct >= 25:
-        return (86, 150, 110)  # green
-    return (110, 112, 122)  # grey
+        return (43, 105, 44)  # green (#2b692c - toned down from FFLogs' neon green)
+    return (102, 102, 102)  # grey
 
 
 def _draw_cross(draw, cx, cy, r, color):
@@ -290,9 +300,12 @@ def render_profile_card(data):
             _draw_cross(draw, x + 20 * SS, cy, 8 * SS, COLOR_TEXT_DIM)
         draw.text((x + icon_area, cy), ult["label"], font=f_pill, fill=COLOR_TEXT, anchor="lm")
         if best_percent is not None:
-            percent_text = f"{best_percent:.0f}%"
+            # Round once and reuse it for both the label and the color band,
+            # so e.g. a raw 99.6% doesn't show "100%" in the 99-pink color.
+            pct_rounded = round(best_percent)
+            percent_text = f"{pct_rounded}%"
             percent_top = y + pill_h + percent_gap
-            _pill(draw, (x, percent_top, x + pill_w, percent_top + percent_h), _percentile_color(best_percent), radius=percent_h // 2)
+            _pill(draw, (x, percent_top, x + pill_w, percent_top + percent_h), _percentile_color(pct_rounded), radius=percent_h // 2)
             draw.text((x + pill_w // 2, percent_top + percent_h // 2), percent_text, font=f_percent, fill=COLOR_TEXT, anchor="mm")
         x += pill_w + pill_gap
     y += pill_h + percent_gap + percent_h + 24 * SS
