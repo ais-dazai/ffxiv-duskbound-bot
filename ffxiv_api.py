@@ -579,12 +579,21 @@ class LodestoneClient:
         from jobs_data import JOBS
         info["job_levels"] = {}
         info["job_icons"] = {}
+        info["sample_li_html"] = None
         for job in JOBS:
             el = soup.select_one(job["level_selector"])
             info["job_levels"][job["key"]] = el.get_text(strip=True) if el else "(selector matched nothing)"
             icon_selector = re.sub(r"div:nth-child\(2\)$", "div:nth-child(1) > img", job["level_selector"])
             icon_el = soup.select_one(icon_selector)
             info["job_icons"][job["key"]] = icon_el.get("src") if icon_el else None
+            # Ground-truth raw HTML for the very first job's <li>, so we can
+            # see exactly how its icon is really embedded (tag, attributes,
+            # nesting) instead of guessing - only needed once, since every
+            # job's <li> shares the same markup shape.
+            if info["sample_li_html"] is None and el is not None:
+                li = el.find_parent("li")
+                if li is not None:
+                    info["sample_li_html"] = str(li)
 
         try:
             profile = self.get_character_profile(lodestone_id)

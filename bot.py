@@ -785,15 +785,20 @@ async def debug_classjob(interaction: discord.Interaction, target_user: discord.
         lines.append(f"• {key}: level={value!r} icon={info['job_icons'].get(key)!r}")
 
     text = "\n".join(lines)
+
+    files = []
+    if info.get("sample_li_html"):
+        files.append(discord.File(
+            io.BytesIO(info["sample_li_html"].encode("utf-8")),
+            filename="sample_job_li.html",
+        ))
+
     if len(text) > 1900:
         buffer = io.BytesIO(text.encode("utf-8"))
-        await interaction.followup.send(
-            "Too long to show inline, here it is as a file:",
-            file=discord.File(buffer, filename="debug_classjob.txt"),
-            ephemeral=True,
-        )
+        files.insert(0, discord.File(buffer, filename="debug_classjob.txt"))
+        await interaction.followup.send("Too long to show inline, here it is as a file:", files=files, ephemeral=True)
         return
-    await interaction.followup.send(text, ephemeral=True)
+    await interaction.followup.send(text, files=files, ephemeral=True)
 
 
 @debug_classjob.error
