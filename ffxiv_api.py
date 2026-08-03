@@ -458,13 +458,22 @@ class LodestoneClient:
         level: None if that job is unlocked but has no level shown ('-'), or
         wasn't found on the page at all.
 
-        icon_src: each job's row on this page is a list item with the job's
-        icon in its first child div and the level in the second (that's why
-        every level_selector in jobs_data.py ends in 'div:nth-child(2)') - so
-        the icon lives at the same position with 'div:nth-child(1) > img'
-        instead. This is used to identify the *currently equipped* job (see
+        icon_src: each job's row on this page is a <li> like
+        '<i class="character__job__icon"><img src=".."></i>
+         <div class="character__job__level">100</div> ...'
+        - the icon is an <img> inside an <i> (not a <div>!) as the first
+        child, with the level div as the second (that's why every
+        level_selector in jobs_data.py ends in 'div:nth-child(2)') - so the
+        icon lives at the same position with 'i:nth-child(1) > img' instead.
+        Confirmed against the real page markup via /debug-classjob (an
+        earlier version of this guessed 'div:nth-child(1)' and silently
+        matched nothing, since the icon's wrapper is actually an <i> tag).
+        This icon is used to identify the *currently equipped* job (see
         get_character_profile's 'active_job_icon_src'), since Lodestone
-        doesn't expose that job's name as text anywhere."""
+        doesn't expose that job's name as text anywhere on the main profile
+        page (only here, on the full class_job list, as a bonus - each row's
+        third child div.character__job__name also holds the plain job name,
+        e.g. "Paladin" - not used here since jobs_data.py already has it)."""
         resp = requests.get(
             f"{LODESTONE_BASE}/character/{lodestone_id}/class_job/",
             headers=LODESTONE_HEADERS,
@@ -482,7 +491,7 @@ class LodestoneClient:
                 level = int(match.group()) if match else None
 
             icon_src = None
-            icon_selector = re.sub(r"div:nth-child\(2\)$", "div:nth-child(1) > img", level_selector)
+            icon_selector = re.sub(r"div:nth-child\(2\)$", "i:nth-child(1) > img", level_selector)
             icon_el = soup.select_one(icon_selector)
             if icon_el is not None:
                 icon_src = icon_el.get("src")
@@ -583,7 +592,7 @@ class LodestoneClient:
         for job in JOBS:
             el = soup.select_one(job["level_selector"])
             info["job_levels"][job["key"]] = el.get_text(strip=True) if el else "(selector matched nothing)"
-            icon_selector = re.sub(r"div:nth-child\(2\)$", "div:nth-child(1) > img", job["level_selector"])
+            icon_selector = re.sub(r"div:nth-child\(2\)$", "i:nth-child(1) > img", job["level_selector"])
             icon_el = soup.select_one(icon_selector)
             info["job_icons"][job["key"]] = icon_el.get("src") if icon_el else None
             # Ground-truth raw HTML for the very first job's <li>, so we can
