@@ -703,8 +703,12 @@ async def profile(interaction: discord.Interaction, target_user: discord.Member 
 
         try:
             for group in build_ultimate_groups():
-                cleared = fflogs.has_clear_any(char["name"], server_slug, server_region, group["ids"])
-                ultimate_progress.append({"label": short_ultimate_label(group["role_name"]), "cleared": cleared})
+                cleared, best_percent = fflogs.get_best_ranking_any(char["name"], server_slug, server_region, group["ids"])
+                ultimate_progress.append({
+                    "label": short_ultimate_label(group["role_name"]),
+                    "cleared": cleared,
+                    "best_percent": best_percent,
+                })
         except Exception as e:
             print(f"/profile: couldn't check Ultimate progress for {char['name']}: {e}")
 
@@ -721,6 +725,7 @@ async def profile(interaction: discord.Interaction, target_user: discord.Member 
         "tribe": profile.get("tribe"),
         "portrait_url": profile.get("portrait_url"),
         "discord_avatar_url": target_user.display_avatar.url,
+        "discord_username": target_user.name,
         "job_name": profile.get("active_job_name") or "",
         "job_level": profile.get("active_job_level") or "?",
         "job_icon_file": (profile.get("active_job_name") or "").lower().replace(" ", "").replace("'", "") or None,

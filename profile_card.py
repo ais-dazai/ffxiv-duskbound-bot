@@ -35,7 +35,7 @@ JOB_ICONS_DIR = os.path.join(ASSETS_DIR, "job_icons")
 SUPERSAMPLE = 3  # draw at 3x, then downscale - smooths every edge in the image
 
 CARD_WIDTH = 1200
-CARD_HEIGHT = 760
+CARD_HEIGHT = 730
 LEFT_PANEL_WIDTH = 380
 
 COLOR_BG = (18, 19, 27)
@@ -104,6 +104,20 @@ def _draw_progress_ring(draw, cx, cy, r, fraction, fg_color, bg_color):
         draw.pieslice(bbox, -90, end_angle, fill=fg_color)
 
 
+def _percentile_color(pct):
+    """Loosely mirrors FFLogs' own percentile color bands (grey/green/blue/
+    purple/orange), simplified to the card's existing palette."""
+    if pct >= 95:
+        return (200, 158, 60)  # gold
+    if pct >= 75:
+        return (124, 77, 210)  # purple (same as COLOR_CLEARED)
+    if pct >= 50:
+        return (86, 130, 191)  # blue
+    if pct >= 25:
+        return (86, 150, 110)  # green
+    return (110, 112, 122)  # grey
+
+
 def _draw_cross(draw, cx, cy, r, color):
     w = max(2, round(r / 5))
     draw.line([(cx - r * 0.5, cy - r * 0.5), (cx + r * 0.5, cy + r * 0.5)], fill=color, width=w)
@@ -122,10 +136,10 @@ def _pill(draw, box, color, radius):
 def render_profile_card(data):
     """data: {
         'name', 'world', 'dc', 'race', 'tribe',
-        'portrait_url', 'discord_avatar_url',
+        'portrait_url', 'discord_avatar_url', 'discord_username',
         'job_name', 'job_level', 'job_icon_file',
         'savage_tiers': [{'label', 'cleared', 'total'}],
-        'ultimates': [{'label', 'cleared'}],
+        'ultimates': [{'label', 'cleared', 'best_percent'}],  # best_percent: float 0-100 or None
         'achievement_points': int or None,
         'minion_count': int or None,
         'mount_count': int or None,
@@ -140,14 +154,16 @@ def render_profile_card(data):
     img = Image.new("RGB", (W, H), COLOR_BG)
     draw = ImageDraw.Draw(img)
 
-    f_name = _font(FONT_BOLD, 40 * SS)
-    f_server = _font(FONT_REGULAR, 22 * SS)
-    f_job = _font(FONT_BOLD, 24 * SS)
+    f_name = _font(FONT_BOLD, 52 * SS)
+    f_server = _font(FONT_REGULAR, 27 * SS)
+    f_job = _font(FONT_BOLD, 27 * SS)
     f_section = _font(FONT_BOLD, 18 * SS)
     f_pill = _font(FONT_BOLD, 16 * SS)
     f_count = _font(FONT_BOLD, 26 * SS)
     f_race = _font(FONT_REGULAR, 18 * SS)
     f_level = _font(FONT_BOLD, 13 * SS)
+    f_handle = _font(FONT_REGULAR, 16 * SS)
+    f_percent = _font(FONT_BOLD, 14 * SS)
 
     # ---- Left panel: character render ----
     portrait = _fetch_image(data.get("portrait_url"))
@@ -172,32 +188,57 @@ def render_profile_card(data):
     rx = LP + 40 * SS
     draw.rectangle((LP, 0, W, H), fill=COLOR_BG_PANEL)
 
-    avatar_size = 96 * SS
+    # Small "@discord_username" badge in the top-right corner - lets the card
+    # show who's looking at it when their FFXIV name differs from their
+    # Discord handle. Deliberately a plain dot + text (not Discord's actual
+    # logo mark) to keep this free of any trademarked artwork.
+    discord_username = data.get("discord_username")
+    if discord_username:
+        handle = f"@{discord_username}"
+        hw, _ = _text_size(draw, handle, f_handle)
+        badge_pad_x = 16 * SS
+        dot_r = 5 * SS
+        badge_h = 30 * SS
+        badge_w = hw + dot_r * 2 + badge_pad_x * 2 + 8 * SS
+        badge_right = W - 30 * SS
+        badge_top = 24 * SS
+        badge_left = badge_right - badge_w
+        _pill(draw, (badge_left, badge_top, badge_right, badge_top + badge_h), COLOR_PILL_BG, radius=badge_h // 2)
+        dot_cx = badge_left + badge_pad_x + dot_r
+        dot_cy = badge_top + badge_h // 2
+        draw.ellipse((dot_cx - dot_r, dot_cy - dot_r, dot_cx + dot_r, dot_cy + dot_r), fill=(88, 101, 242))
+        draw.text((dot_cx + dot_r + 8 * SS, dot_cy), handle, font=f_handle, fill=COLOR_TEXT_DIM, anchor="lm")
+
+    avatar_size = 128 * SS
+    avatar_top = 26 * SS
     avatar = _fetch_image(data.get("discord_avatar_url"))
-    _paste_circular(img, avatar, (rx, 30 * SS, avatar_size))
+    _paste_circular(img, avatar, (rx, avatar_top, avatar_size))
     draw = ImageDraw.Draw(img)  # img was touched via composite/paste above
 
-    text_x = rx + avatar_size + 24 * SS
-    draw.text((text_x, 30 * SS), data.get("name") or "Unknown", font=f_name, fill=COLOR_TEXT, anchor="la")
+    text_x = rx + avatar_size + 28 * SS
+    name_y = avatar_top
+    draw.text((text_x, name_y), data.get("name") or "Unknown", font=f_name, fill=COLOR_TEXT, anchor="la")
+    server_y = name_y + 60 * SS
     server_line = " / ".join(p for p in [data.get("world"), f"({data['dc']})" if data.get("dc") else None] if p)
-    draw.text((text_x, 82 * SS), server_line, font=f_server, fill=COLOR_TEXT_DIM, anchor="la")
+    draw.text((text_x, server_y), server_line, font=f_server, fill=COLOR_TEXT_DIM, anchor="la")
 
     job_icon = None
     job_icon_file = data.get("job_icon_file")
     if job_icon_file:
         path = os.path.join(JOB_ICONS_DIR, f"{job_icon_file}.png")
         if os.path.exists(path):
-            job_icon = Image.open(path).convert("RGBA").resize((28 * SS, 28 * SS), Image.LANCZOS)
-    job_y = 114 * SS
+            job_icon = Image.open(path).convert("RGBA").resize((34 * SS, 34 * SS), Image.LANCZOS)
+    job_cy = server_y + 34 * SS + 17 * SS  # vertical center of the job icon+text row
     job_label = f"Level {data.get('job_level', '?')} {data.get('job_name', '')}".strip()
     if job_icon:
-        img.paste(job_icon, (text_x, job_y), job_icon)
+        img.paste(job_icon, (text_x, job_cy - 17 * SS), job_icon)
         draw = ImageDraw.Draw(img)
-        draw.text((text_x + 36 * SS, job_y + 14 * SS), job_label, font=f_job, fill=COLOR_TEXT, anchor="lm")
+        draw.text((text_x + 34 * SS + 10 * SS, job_cy), job_label, font=f_job, fill=COLOR_TEXT, anchor="lm")
     else:
-        draw.text((text_x, job_y + 14 * SS), job_label, font=f_job, fill=COLOR_TEXT, anchor="lm")
+        draw.text((text_x, job_cy), job_label, font=f_job, fill=COLOR_TEXT, anchor="lm")
 
-    y = 170 * SS
+    header_bottom = max(avatar_top + avatar_size, job_cy + 17 * SS)
+    y = header_bottom + 24 * SS
 
     def section_header(label, y):
         draw.text((rx, y), label.upper(), font=f_section, fill=COLOR_TEXT_DIM, anchor="la")
@@ -232,8 +273,11 @@ def render_profile_card(data):
     # ---- Ultimates ----
     y = section_header("Ultimates", y)
     x = rx
+    percent_h = 22 * SS
+    percent_gap = 6 * SS
     for ult in data.get("ultimates", []):
         cleared = ult["cleared"]
+        best_percent = ult.get("best_percent")
         w, _ = _text_size(draw, ult["label"], f_pill)
         icon_area = 34 * SS
         pill_w = max(w + icon_area + 12 * SS, 90 * SS)
@@ -245,8 +289,13 @@ def render_profile_card(data):
         else:
             _draw_cross(draw, x + 20 * SS, cy, 8 * SS, COLOR_TEXT_DIM)
         draw.text((x + icon_area, cy), ult["label"], font=f_pill, fill=COLOR_TEXT, anchor="lm")
+        if best_percent is not None:
+            percent_text = f"{best_percent:.0f}%"
+            percent_top = y + pill_h + percent_gap
+            _pill(draw, (x, percent_top, x + pill_w, percent_top + percent_h), _percentile_color(best_percent), radius=percent_h // 2)
+            draw.text((x + pill_w // 2, percent_top + percent_h // 2), percent_text, font=f_percent, fill=COLOR_TEXT, anchor="mm")
         x += pill_w + pill_gap
-    y += 60 * SS
+    y += pill_h + percent_gap + percent_h + 24 * SS
 
     # ---- Achievements / Minions / Mounts ----
     stat_labels = [

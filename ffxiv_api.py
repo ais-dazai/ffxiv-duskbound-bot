@@ -120,7 +120,12 @@ class FFLogsClient:
             self._server_cache = cache
         return self._server_cache.get(server_name.strip().lower(), (None, None))
 
-    def has_clear(self, char_name, server_slug, server_region, encounter_id):
+    def get_encounter_ranking(self, char_name, server_slug, server_region, encounter_id):
+        """Returns the raw encounterRankings JSON for this character+encounter
+        (a dict that includes at least 'totalKills', and - when FFLogs has
+        percentile data for this fight - 'rankPercent', the character's best
+        parse percentile, and 'medianPercent'), or None if the character has
+        no FFLogs data for it at all."""
         query = """
         query($name: String!, $server: String!, $region: String!, $encounterID: Int!) {
           characterData {
@@ -139,11 +144,17 @@ class FFLogsClient:
         data = self.query(query, variables)
         char = data["characterData"]["character"]
         if not char:
-            return False
+            return None
         rankings = char.get("encounterRankings")
         if not rankings or not isinstance(rankings, dict):
+            return None
+        return rankings
+
+    def has_clear(self, char_name, server_slug, server_region, encounter_id):
+        ranking = self.get_encounter_ranking(char_name, server_slug, server_region, encounter_id)
+        if not ranking:
             return False
-        total_kills = rankings.get("totalKills", 0)
+        total_kills = ranking.get("totalKills", 0)
         return bool(total_kills and total_kills > 0)
 
     def has_clear_any(self, char_name, server_slug, server_region, encounter_ids):
@@ -161,6 +172,33 @@ class FFLogsClient:
         if last_error is not None:
             raise last_error
         return False
+
+    def get_best_ranking_any(self, char_name, server_slug, server_region, encounter_ids):
+        """Like has_clear_any, but in one pass also returns the best 'best
+        parse' percentile (0-100) FFLogs has for this fight across the given
+        ids - used by /profile to show a small percentile badge under each
+        Ultimate. Returns (cleared: bool, best_percent: float or None) -
+        best_percent is None if the character has no percentile data at all
+        (private logs, or a fight FFLogs doesn't rank by percentile)."""
+        cleared = False
+        best_percent = None
+        last_error = None
+        for encounter_id in encounter_ids:
+            try:
+                ranking = self.get_encounter_ranking(char_name, server_slug, server_region, encounter_id)
+            except Exception as e:
+                last_error = e
+                continue
+            if not ranking:
+                continue
+            if ranking.get("totalKills", 0):
+                cleared = True
+            pct = ranking.get("rankPercent")
+            if isinstance(pct, (int, float)) and pct >= 0 and (best_percent is None or pct > best_percent):
+                best_percent = pct
+        if not cleared and best_percent is None and last_error is not None:
+            raise last_error
+        return cleared, best_percent
 
 
 class LodestoneClient:
