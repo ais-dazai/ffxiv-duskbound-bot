@@ -452,12 +452,14 @@ class LodestoneClient:
 
     def get_achievement_points(self, lodestone_id):
         """Best-effort: the total achievement points shown at the top of the
-        achievement page. Unlike the fields above, there's no selector for
-        this in the community-maintained selector reference, and this page
-        has occasionally been flakier about automated requests than the
-        others - so this returns None on any failure instead of raising, and
-        callers should treat None as 'unknown' rather than an error. Use
-        /debug-achievements to inspect the raw page if this keeps failing."""
+        achievement page. The earlier guessed selectors here
+        (.character__achievement__points, .achievement__point--total, etc.)
+        were all wrong, which is why this failed for every character - the
+        real selector, confirmed against the community-maintained
+        xivapi/lodestone-css-selectors reference (achievements.json's
+        ACHIEVEMENT_POINTS field), is '.achievement__point'. Still wrapped in
+        try/except and returns None on any failure rather than raising,
+        since callers should treat None as 'unknown' rather than an error."""
         try:
             resp = requests.get(
                 f"{LODESTONE_BASE}/character/{lodestone_id}/achievement/",
@@ -469,22 +471,15 @@ class LodestoneClient:
             return None
 
         soup = BeautifulSoup(resp.text, "html.parser")
-        candidates = [
-            ".character__achievement__points",
-            ".achievement__point--total",
-            ".point__total",
-            ".achievement-points",
-        ]
-        for sel in candidates:
-            el = soup.select_one(sel)
-            if el:
-                match = re.search(r"[\d,]+", el.get_text(strip=True))
-                if match:
-                    return int(match.group().replace(",", ""))
+        el = soup.select_one(".achievement__point")
+        if el:
+            match = re.search(r"[\d,]+", el.get_text(strip=True))
+            if match:
+                return int(match.group().replace(",", ""))
 
-        # Fallback: scan the whole page text for a "N,NNN Points" pattern,
-        # which is how the total is displayed visually on the real page.
-        match = re.search(r"([\d,]{3,})\s*Points", resp.text)
+        # Fallback in case Lodestone's markup changes again: scan the whole
+        # page text for a "N,NNN Points"/"N,NNN pts" pattern.
+        match = re.search(r"([\d,]{3,})\s*(?:Points|pts)", resp.text, re.IGNORECASE)
         if match:
             return int(match.group(1).replace(",", ""))
         return None
