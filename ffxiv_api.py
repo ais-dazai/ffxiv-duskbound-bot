@@ -9,6 +9,7 @@ External API clients used by the bot:
   pages per verification, so we stay well within reasonable, respectful use.
 """
 
+import re
 import time
 import requests
 from bs4 import BeautifulSoup
