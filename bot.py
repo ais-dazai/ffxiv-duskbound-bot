@@ -438,8 +438,11 @@ async def register(interaction: discord.Interaction, name: str, server: str):
         {"id": char["ID"], "name": char["Name"], "server": char["Server"]},
     )
     await interaction.followup.send(
-        f"Linked **{char['Name']}** on **{char['Server']}** to your account.\n"
-        f"Now use `/update-roles` to get roles based on your cleared Ultimates.",
+        f"Linked **{char['Name']}** on **{char['Server']}** to your account.\n\n"
+        f"Here's what you can do now:\n"
+        f"• `/update-roles` - checks your profile for cleared Ultimates and assigns matching Discord roles\n"
+        f"• `/profile` - posts an image card of your profile\n"
+        f"• `/my-mounts` - shows which Savage/Extreme raid mounts you own, broken down by expansion",
         ephemeral=True,
     )
 
