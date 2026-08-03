@@ -220,51 +220,58 @@ class FFLogsClient:
         return cleared, best_percent
 
 
+SEARCH_MAX_PAGES = 20  # Lodestone shows 50 results per page - 20 pages is
+                       # 1000 candidates, far more than any real name search
+                       # should need, and bounds worst-case request count.
+
+
 class LodestoneClient:
     def search_character(self, name, server):
-        params = {"q": name, "worldname": server}
-        resp = requests.get(
-            f"{LODESTONE_BASE}/character/",
-            params=params,
-            headers=LODESTONE_HEADERS,
-            timeout=15,
-        )
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
-        entries = soup.select("a.entry__link")
-        if not entries:
-            return None
-
+        """Lodestone's name search is a loose substring match (e.g. searching
+        "Ley Ley" also matches "Crowley Winchester", "Ashley Sto", etc.) and
+        only returns 50 results per page - the previous version only ever
+        looked at page 1, so a character with a common name/name fragment
+        could be genuinely on Lodestone (and even show up in Lodestone's own
+        website search) but never be found here if they weren't in the first
+        50 matches. Now pages through results (up to SEARCH_MAX_PAGES) until
+        an exact name+server match is found or there are no more results."""
         target_name = name.strip().lower()
         target_server = server.strip().lower()
-        best = None
-        for entry in entries:
-            name_el = entry.select_one(".entry__name")
-            world_el = entry.select_one(".entry__world")
-            if not name_el or not world_el:
-                continue
-            entry_name = name_el.get_text(strip=True).lower()
-            entry_world = world_el.get_text(strip=True).lower()
-            if entry_name == target_name and entry_world.startswith(target_server):
-                best = entry
-                break
 
-        if best is None:
-            return None
+        for page in range(1, SEARCH_MAX_PAGES + 1):
+            params = {"q": name, "worldname": server, "page": page}
+            resp = requests.get(
+                f"{LODESTONE_BASE}/character/",
+                params=params,
+                headers=LODESTONE_HEADERS,
+                timeout=15,
+            )
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "html.parser")
+            entries = soup.select("a.entry__link")
+            if not entries:
+                return None  # no more results on this (or the first) page
 
-        href = best.get("href", "")
-        parts = [p for p in href.split("/") if p]
-        char_id = parts[-1] if parts else None
-        name_el = best.select_one(".entry__name")
-        world_el = best.select_one(".entry__world")
-        world_text = world_el.get_text(strip=True) if world_el else server
-        world_name = world_text.split()[0] if world_text else server
+            for entry in entries:
+                name_el = entry.select_one(".entry__name")
+                world_el = entry.select_one(".entry__world")
+                if not name_el or not world_el:
+                    continue
+                entry_name = name_el.get_text(strip=True).lower()
+                entry_world = world_el.get_text(strip=True).lower()
+                if entry_name == target_name and entry_world.startswith(target_server):
+                    href = entry.get("href", "")
+                    parts = [p for p in href.split("/") if p]
+                    char_id = parts[-1] if parts else None
+                    world_text = world_el.get_text(strip=True)
+                    world_name = world_text.split()[0] if world_text else server
+                    return {
+                        "ID": char_id,
+                        "Name": name_el.get_text(strip=True),
+                        "Server": world_name,
+                    }
 
-        return {
-            "ID": char_id,
-            "Name": name_el.get_text(strip=True) if name_el else name,
-            "Server": world_name,
-        }
+        return None
 
     def debug_search(self, name, server):
         """Raw diagnostic info for troubleshooting: HTTP status, how many
