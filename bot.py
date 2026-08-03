@@ -21,6 +21,8 @@ from dotenv import load_dotenv
 
 from ffxiv_api import FFLogsClient, LodestoneClient
 from storage import Storage
+from jobs_data import JOBS
+from profile_card import render_profile_card
 
 load_dotenv()
 
@@ -40,6 +42,9 @@ with open("reaction_roles.json", "r", encoding="utf-8") as f:
 
 with open("mount_lists.json", "r", encoding="utf-8") as f:
     MOUNT_LISTS = json.load(f)
+
+with open("savage_tiers.json", "r", encoding="utf-8") as f:
+    SAVAGE_TIERS_CONFIG = json.load(f)
 
 
 def resolve_role_name(encounter_name):
@@ -88,6 +93,34 @@ def build_ultimate_groups():
             seen_fallback_names.add(e["name"])
 
     return groups
+
+
+def short_ultimate_label(role_name):
+    """'UCoB Cleared' -> 'UCoB' - derives the compact label shown on the /me
+    card from the same role_names values already configured in
+    roles_config.json, so there's nothing extra to maintain."""
+    return re.sub(r"\s*Cleared\s*$", "", role_name).strip()
+
+
+def build_savage_tiers():
+    """Resolves savage_tiers.json's boss-name keywords into FFLogs encounter
+    ids, the same keyword-matching approach as build_ultimate_groups (so a
+    new tier just needs its 4 boss names added to the config file, no code
+    changes)."""
+    all_encounters = fflogs.get_all_encounters()
+    tiers = []
+    for tier in SAVAGE_TIERS_CONFIG.get("tiers", []):
+        fights = []
+        for boss_keyword in tier["fights"]:
+            ids = [e["id"] for e in all_encounters if boss_keyword.lower() in e["name"].lower()]
+            fights.append({"label": boss_keyword, "ids": ids})
+        tiers.append({
+            "label": tier["label"],
+            "short_label": tier.get("short_label", tier["label"]),
+            "fights": fights,
+        })
+    return tiers
+
 
 intents = discord.Intents.default()
 intents.members = True
@@ -598,6 +631,192 @@ async def my_mounts(interaction: discord.Interaction, expansion: app_commands.Ch
         return
 
     await interaction.followup.send(embed=embed, ephemeral=False)
+
+
+@bot.tree.command(name="me", description="Show your (or someone else's) FFXIV profile card")
+@app_commands.describe(target_user="Show this member's card instead of your own")
+async def me(interaction: discord.Interaction, target_user: discord.Member = None):
+    await interaction.response.defer(ephemeral=False)
+    target_user = target_user or interaction.user
+
+    char = storage.get_verified(target_user.id)
+    if not char:
+        if target_user.id == interaction.user.id:
+            await interaction.followup.send("You need to register a character first with `/register`.", ephemeral=True)
+        else:
+            await interaction.followup.send(f"{target_user.display_name} hasn't registered a character.", ephemeral=True)
+        return
+
+    try:
+        profile = lodestone.get_character_profile(char["id"])
+    except Exception as e:
+        await interaction.followup.send(
+            f"Error reading the Lodestone profile page: {e}\n"
+            f"This can happen if Lodestone is temporarily blocking automated requests. Try again in a minute.",
+            ephemeral=True,
+        )
+        return
+
+    # Everything below is best-effort: if one piece fails (FFLogs hiccup,
+    # a Lodestone sub-page briefly blocked, etc.) the card still renders
+    # with whatever we do have, rather than failing the whole command.
+    try:
+        job_levels = lodestone.get_class_job_levels(char["id"], [(j["key"], j["level_selector"]) for j in JOBS])
+    except Exception as e:
+        print(f"/me: couldn't read class_job page for {char['name']}: {e}")
+        job_levels = {}
+
+    try:
+        minion_count = lodestone.get_minion_count(char["id"])
+    except Exception as e:
+        print(f"/me: couldn't read minion count for {char['name']}: {e}")
+        minion_count = None
+
+    try:
+        mount_count = lodestone.get_mount_count(char["id"])
+    except Exception as e:
+        print(f"/me: couldn't read mount count for {char['name']}: {e}")
+        mount_count = None
+
+    achievement_points = lodestone.get_achievement_points(char["id"])  # already best-effort internally
+
+    savage_tier_progress = []
+    ultimate_progress = []
+    server_slug, server_region = fflogs.get_server_info(char["server"])
+    if server_slug:
+        try:
+            for tier in build_savage_tiers():
+                cleared = 0
+                for fight in tier["fights"]:
+                    if fight["ids"] and fflogs.has_clear_any(char["name"], server_slug, server_region, fight["ids"]):
+                        cleared += 1
+                savage_tier_progress.append({
+                    "label": tier["short_label"],
+                    "cleared": cleared,
+                    "total": len(tier["fights"]),
+                })
+        except Exception as e:
+            print(f"/me: couldn't check Savage progress for {char['name']}: {e}")
+
+        try:
+            for group in build_ultimate_groups():
+                cleared = fflogs.has_clear_any(char["name"], server_slug, server_region, group["ids"])
+                ultimate_progress.append({"label": short_ultimate_label(group["role_name"]), "cleared": cleared})
+        except Exception as e:
+            print(f"/me: couldn't check Ultimate progress for {char['name']}: {e}")
+
+    jobs_data_for_card = [
+        {"display": j["display"], "icon": j["icon"], "role": j["role"], "level": job_levels.get(j["key"])}
+        for j in JOBS
+    ]
+
+    card_data = {
+        "name": profile.get("name") or char["name"],
+        "world": profile.get("world") or char["server"],
+        "dc": profile.get("dc"),
+        "race": profile.get("race"),
+        "tribe": profile.get("tribe"),
+        "portrait_url": profile.get("portrait_url"),
+        "discord_avatar_url": target_user.display_avatar.url,
+        "job_name": profile.get("active_job_name") or "",
+        "job_level": profile.get("active_job_level") or "?",
+        "job_icon_file": (profile.get("active_job_name") or "").lower().replace(" ", "").replace("'", "") or None,
+        "savage_tiers": savage_tier_progress,
+        "ultimates": ultimate_progress,
+        "achievement_points": achievement_points,
+        "minion_count": minion_count,
+        "mount_count": mount_count,
+        "jobs": jobs_data_for_card,
+    }
+
+    try:
+        image_buffer = render_profile_card(card_data)
+    except Exception as e:
+        await interaction.followup.send(f"Something went wrong drawing the profile card: {e}", ephemeral=True)
+        return
+
+    await interaction.followup.send(file=discord.File(image_buffer, filename="profile.png"), ephemeral=False)
+
+
+@bot.tree.command(name="debug-classjob", description="[Admin] Show raw job-level scraping results for troubleshooting")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def debug_classjob(interaction: discord.Interaction, target_user: discord.Member = None):
+    await interaction.response.defer(ephemeral=True)
+    target_user = target_user or interaction.user
+    char = storage.get_verified(target_user.id)
+    if not char:
+        await interaction.followup.send(f"{target_user.display_name} hasn't registered a character.", ephemeral=True)
+        return
+
+    try:
+        info = lodestone.debug_class_job_page(char["id"])
+    except Exception as e:
+        await interaction.followup.send(f"Request failed: {e}", ephemeral=True)
+        return
+
+    lines = [f"HTTP status: {info['status_code']}", f"URL: {info['url']}", f"HTML length: {info['html_length']}", ""]
+    for key, value in info["job_levels"].items():
+        lines.append(f"• {key}: {value!r}")
+
+    text = "\n".join(lines)
+    if len(text) > 1900:
+        buffer = io.BytesIO(text.encode("utf-8"))
+        await interaction.followup.send(
+            "Too long to show inline, here it is as a file:",
+            file=discord.File(buffer, filename="debug_classjob.txt"),
+            ephemeral=True,
+        )
+        return
+    await interaction.followup.send(text, ephemeral=True)
+
+
+@debug_classjob.error
+async def debug_classjob_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Roles' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
+
+
+@bot.tree.command(name="debug-achievements", description="[Admin] Inspect the raw achievement page, for troubleshooting")
+@app_commands.checks.has_permissions(manage_roles=True)
+async def debug_achievements(interaction: discord.Interaction, target_user: discord.Member = None):
+    await interaction.response.defer(ephemeral=True)
+    target_user = target_user or interaction.user
+    char = storage.get_verified(target_user.id)
+    if not char:
+        await interaction.followup.send(f"{target_user.display_name} hasn't registered a character.", ephemeral=True)
+        return
+
+    try:
+        info = lodestone.debug_achievement_page(char["id"])
+    except Exception as e:
+        await interaction.followup.send(f"Request failed: {e}", ephemeral=True)
+        return
+
+    lines = [f"HTTP status: {info['status_code']}", f"URL: {info['url']}", f"HTML length: {info['html_length']}", ""]
+    if not info["snippets"]:
+        lines.append("Didn't find the word 'Points' anywhere in the raw HTML.")
+
+    text = "\n".join(lines)
+    files = []
+    for i, snip in enumerate(info["snippets"]):
+        buffer = io.BytesIO(snip["context"].encode("utf-8"))
+        files.append(discord.File(buffer, filename=f"achievements_snippet_{i}.txt"))
+
+    await interaction.followup.send(text, files=files, ephemeral=True)
+
+
+@debug_achievements.error
+async def debug_achievements_error(interaction: discord.Interaction, error):
+    if isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You need the 'Manage Roles' permission to use this command.", ephemeral=True
+        )
+    else:
+        raise error
 
 
 @bot.tree.command(name="debug-search", description="[Admin] Show raw Lodestone search results for troubleshooting")

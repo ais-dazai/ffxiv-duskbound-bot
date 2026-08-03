@@ -324,6 +324,197 @@ class LodestoneClient:
 
         return info
 
+    def get_character_profile(self, lodestone_id):
+        """Scrapes the main character page for the fields shown at the top of
+        the /me profile card: name, race/tribe/gender, world + data center,
+        the big character render (portrait), and the currently active
+        class/job with its level. Selectors come from the community-maintained
+        https://github.com/xivapi/lodestone-css-selectors project."""
+        resp = requests.get(
+            f"{LODESTONE_BASE}/character/{lodestone_id}/",
+            headers=LODESTONE_HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        profile = {
+            "name": None,
+            "race": None,
+            "tribe": None,
+            "world": None,
+            "dc": None,
+            "portrait_url": None,
+            "active_job_name": None,
+            "active_job_level": None,
+        }
+
+        name_el = soup.select_one("div.frame__chara__box:nth-child(2) > .frame__chara__name")
+        if name_el:
+            profile["name"] = name_el.get_text(strip=True)
+
+        race_el = soup.select_one("div.character-block:nth-child(1) > div:nth-child(2) > p:nth-child(2)")
+        if race_el:
+            # e.g. "Au Ra<br>Xaela / ♂" once rendered - get_text keeps the line break as a gap
+            raw = race_el.decode_contents()
+            match = re.search(r"(?P<Race>.*?)<br\s*/?>(?P<Tribe>.*?)\s*/", raw)
+            if match:
+                profile["race"] = BeautifulSoup(match.group("Race"), "html.parser").get_text(strip=True)
+                profile["tribe"] = BeautifulSoup(match.group("Tribe"), "html.parser").get_text(strip=True)
+
+        world_el = soup.select_one("p.frame__chara__world")
+        if world_el:
+            match = re.match(r"(?P<World>\S*)\s*\[(?P<DC>\S*)\]", world_el.get_text(strip=True))
+            if match:
+                profile["world"] = match.group("World")
+                profile["dc"] = match.group("DC")
+
+        portrait_el = soup.select_one(".js__image_popup > img:nth-child(1)")
+        if portrait_el:
+            profile["portrait_url"] = portrait_el.get("src")
+
+        job_icon_el = soup.select_one(".character__class_icon > img:nth-child(1)")
+        if job_icon_el:
+            # Lodestone sets the alt text of this icon to the job's display
+            # name (e.g. "Dragoon") - much more reliable than trying to
+            # reverse-engineer the job from the icon's image filename/id.
+            alt = job_icon_el.get("alt", "").strip()
+            if alt:
+                profile["active_job_name"] = alt
+
+        level_el = soup.select_one(".character__class__data > p:nth-child(1)")
+        if level_el:
+            match = re.search(r"LEVEL\s*(\d+)", level_el.get_text(strip=True))
+            if match:
+                profile["active_job_level"] = int(match.group(1))
+
+        return profile
+
+    def get_class_job_levels(self, lodestone_id, job_selectors):
+        """job_selectors: list of (key, css_selector) pairs (see jobs_data.py).
+        Returns a dict of key -> level (int) or None if that job is unlocked
+        but has no level shown ('-'), or wasn't found on the page at all."""
+        resp = requests.get(
+            f"{LODESTONE_BASE}/character/{lodestone_id}/class_job/",
+            headers=LODESTONE_HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        levels = {}
+        for key, selector in job_selectors:
+            el = soup.select_one(selector)
+            if el is None:
+                levels[key] = None
+                continue
+            text = el.get_text(strip=True)
+            match = re.search(r"\d+", text)
+            levels[key] = int(match.group()) if match else None
+        return levels
+
+    def get_minion_count(self, lodestone_id):
+        return self._get_collection_total(lodestone_id, "minion")
+
+    def get_mount_count(self, lodestone_id):
+        return self._get_collection_total(lodestone_id, "mount")
+
+    def _get_collection_total(self, lodestone_id, kind):
+        """kind: 'minion' or 'mount'. Both pages show the owned count in a
+        '.minion__sort__total' widget (Lodestone reuses that class name on
+        both pages) - if that ever changes, /debug-mounts-v2-style inspection
+        would be the way to re-tune this."""
+        resp = requests.get(
+            f"{LODESTONE_BASE}/character/{lodestone_id}/{kind}/",
+            headers=LODESTONE_MOBILE_HEADERS,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+        el = soup.select_one(".minion__sort__total > span:nth-child(1)")
+        if el is None:
+            return None
+        match = re.search(r"\d+", el.get_text(strip=True))
+        return int(match.group()) if match else None
+
+    def get_achievement_points(self, lodestone_id):
+        """Best-effort: the total achievement points shown at the top of the
+        achievement page. Unlike the fields above, there's no selector for
+        this in the community-maintained selector reference, and this page
+        has occasionally been flakier about automated requests than the
+        others - so this returns None on any failure instead of raising, and
+        callers should treat None as 'unknown' rather than an error. Use
+        /debug-achievements to inspect the raw page if this keeps failing."""
+        try:
+            resp = requests.get(
+                f"{LODESTONE_BASE}/character/{lodestone_id}/achievement/",
+                headers=LODESTONE_HEADERS,
+                timeout=15,
+            )
+            resp.raise_for_status()
+        except Exception:
+            return None
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        candidates = [
+            ".character__achievement__points",
+            ".achievement__point--total",
+            ".point__total",
+            ".achievement-points",
+        ]
+        for sel in candidates:
+            el = soup.select_one(sel)
+            if el:
+                match = re.search(r"[\d,]+", el.get_text(strip=True))
+                if match:
+                    return int(match.group().replace(",", ""))
+
+        # Fallback: scan the whole page text for a "N,NNN Points" pattern,
+        # which is how the total is displayed visually on the real page.
+        match = re.search(r"([\d,]{3,})\s*Points", resp.text)
+        if match:
+            return int(match.group(1).replace(",", ""))
+        return None
+
+    def debug_class_job_page(self, lodestone_id):
+        """Raw diagnostic info for the class/job page, mirroring debug_mount_page."""
+        resp = requests.get(
+            f"{LODESTONE_BASE}/character/{lodestone_id}/class_job/",
+            headers=LODESTONE_HEADERS,
+            timeout=15,
+        )
+        info = {"status_code": resp.status_code, "url": resp.url, "html_length": len(resp.text)}
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        from jobs_data import JOBS
+        info["job_levels"] = {}
+        for job in JOBS:
+            el = soup.select_one(job["level_selector"])
+            info["job_levels"][job["key"]] = el.get_text(strip=True) if el else "(selector matched nothing)"
+        return info
+
+    def debug_achievement_page(self, lodestone_id):
+        """Raw diagnostic info for the achievement page, mirroring debug_mount_page_v2:
+        shows whether the page loads at all, and the raw HTML around the word
+        'Points' so we can find the real selector for the total."""
+        resp = requests.get(
+            f"{LODESTONE_BASE}/character/{lodestone_id}/achievement/",
+            headers=LODESTONE_HEADERS,
+            timeout=15,
+        )
+        info = {"status_code": resp.status_code, "url": resp.url, "html_length": len(resp.text)}
+        resp.raise_for_status()
+        html = resp.text
+        info["snippets"] = []
+        for needle in ["Points", "point"]:
+            idx = html.find(needle)
+            if idx != -1:
+                start = max(0, idx - 300)
+                end = min(len(html), idx + 300)
+                info["snippets"].append({"needle": needle, "context": html[start:end]})
+        return info
+
     def get_character_mounts(self, lodestone_id):
         """Returns the set of mount names this character owns, read from
         their public Lodestone mount page (mobile user agent, so names are
