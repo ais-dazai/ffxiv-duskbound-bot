@@ -27,6 +27,16 @@ LODESTONE_MOBILE_HEADERS = {
 }
 
 
+def normalize_icon_url(url):
+    """Strips the cache-busting query string (e.g. '?n7.55') off a Lodestone
+    icon URL so two URLs for the same underlying image can be compared with
+    a plain '==', even if they were fetched from different pages at slightly
+    different times."""
+    if not url:
+        return None
+    return url.split("?")[0]
+
+
 class FFLogsClient:
     def __init__(self, client_id, client_secret):
         self.client_id = client_id
@@ -179,7 +189,15 @@ class FFLogsClient:
         ids - used by /profile to show a small percentile badge under each
         Ultimate. Returns (cleared: bool, best_percent: float or None) -
         best_percent is None if the character has no percentile data at all
-        (private logs, or a fight FFLogs doesn't rank by percentile)."""
+        (private logs, or a fight FFLogs doesn't rank by percentile).
+
+        Note: 'rankPercent' is NOT a field of the top-level encounterRankings
+        object (that only has aggregate stuff like totalKills/bestAmount) -
+        percentiles live per-pull, inside the 'ranks' list. Each entry there
+        has 'historicalPercent' (the character's all-time percentile for that
+        pull) as well as 'rankPercent'/'todayPercent' (scoped to whatever
+        implicit timeframe the API applied). We want "best parse ever", so we
+        take the max 'historicalPercent' across every pull in 'ranks'."""
         cleared = False
         best_percent = None
         last_error = None
@@ -193,9 +211,10 @@ class FFLogsClient:
                 continue
             if ranking.get("totalKills", 0):
                 cleared = True
-            pct = ranking.get("rankPercent")
-            if isinstance(pct, (int, float)) and pct >= 0 and (best_percent is None or pct > best_percent):
-                best_percent = pct
+            for rank in ranking.get("ranks") or []:
+                pct = rank.get("historicalPercent")
+                if isinstance(pct, (int, float)) and pct >= 0 and (best_percent is None or pct > best_percent):
+                    best_percent = pct
         if not cleared and best_percent is None and last_error is not None:
             raise last_error
         return cleared, best_percent
@@ -384,7 +403,7 @@ class LodestoneClient:
             "world": None,
             "dc": None,
             "portrait_url": None,
-            "active_job_name": None,
+            "active_job_icon_src": None,
             "active_job_level": None,
         }
 
@@ -414,12 +433,14 @@ class LodestoneClient:
 
         job_icon_el = soup.select_one(".character__class_icon > img:nth-child(1)")
         if job_icon_el:
-            # Lodestone sets the alt text of this icon to the job's display
-            # name (e.g. "Dragoon") - much more reliable than trying to
-            # reverse-engineer the job from the icon's image filename/id.
-            alt = job_icon_el.get("alt", "").strip()
-            if alt:
-                profile["active_job_name"] = alt
+            # Lodestone does NOT label this icon with the job's name anywhere
+            # (no alt text, no tooltip) - the official selector reference
+            # (xivapi/lodestone-css-selectors) only exposes its image 'src'.
+            # To turn that into an actual job name, get_class_job_data() below
+            # scrapes the same icon image for all 33 jobs on the class_job
+            # page, and callers match this src against that list to find
+            # which job it is (see bot.py's /profile command).
+            profile["active_job_icon_src"] = job_icon_el.get("src")
 
         level_el = soup.select_one(".character__class__data > p:nth-child(1)")
         if level_el:
@@ -429,10 +450,21 @@ class LodestoneClient:
 
         return profile
 
-    def get_class_job_levels(self, lodestone_id, job_selectors):
-        """job_selectors: list of (key, css_selector) pairs (see jobs_data.py).
-        Returns a dict of key -> level (int) or None if that job is unlocked
-        but has no level shown ('-'), or wasn't found on the page at all."""
+    def get_class_job_data(self, lodestone_id, job_selectors):
+        """job_selectors: list of (key, level_selector) pairs (see jobs_data.py).
+        Fetches the class_job page ONCE and returns a dict of
+        key -> {"level": int or None, "icon_src": str or None}.
+
+        level: None if that job is unlocked but has no level shown ('-'), or
+        wasn't found on the page at all.
+
+        icon_src: each job's row on this page is a list item with the job's
+        icon in its first child div and the level in the second (that's why
+        every level_selector in jobs_data.py ends in 'div:nth-child(2)') - so
+        the icon lives at the same position with 'div:nth-child(1) > img'
+        instead. This is used to identify the *currently equipped* job (see
+        get_character_profile's 'active_job_icon_src'), since Lodestone
+        doesn't expose that job's name as text anywhere."""
         resp = requests.get(
             f"{LODESTONE_BASE}/character/{lodestone_id}/class_job/",
             headers=LODESTONE_HEADERS,
@@ -441,16 +473,29 @@ class LodestoneClient:
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        levels = {}
-        for key, selector in job_selectors:
-            el = soup.select_one(selector)
-            if el is None:
-                levels[key] = None
-                continue
-            text = el.get_text(strip=True)
-            match = re.search(r"\d+", text)
-            levels[key] = int(match.group()) if match else None
-        return levels
+        data = {}
+        for key, level_selector in job_selectors:
+            level = None
+            el = soup.select_one(level_selector)
+            if el is not None:
+                match = re.search(r"\d+", el.get_text(strip=True))
+                level = int(match.group()) if match else None
+
+            icon_src = None
+            icon_selector = re.sub(r"div:nth-child\(2\)$", "div:nth-child(1) > img", level_selector)
+            icon_el = soup.select_one(icon_selector)
+            if icon_el is not None:
+                icon_src = icon_el.get("src")
+
+            data[key] = {"level": level, "icon_src": icon_src}
+        return data
+
+    def get_class_job_levels(self, lodestone_id, job_selectors):
+        """Backward-compatible thin wrapper around get_class_job_data() for
+        callers (like /debug-classjob) that only care about levels, not
+        icons. Returns a dict of key -> level (int or None)."""
+        data = self.get_class_job_data(lodestone_id, job_selectors)
+        return {key: v["level"] for key, v in data.items()}
 
     def get_minion_count(self, lodestone_id):
         return self._get_collection_total(lodestone_id, "minion")
@@ -516,7 +561,12 @@ class LodestoneClient:
         return None
 
     def debug_class_job_page(self, lodestone_id):
-        """Raw diagnostic info for the class/job page, mirroring debug_mount_page."""
+        """Raw diagnostic info for the class/job page, mirroring debug_mount_page.
+        Also fetches the main character page to grab the currently-equipped
+        job's icon, and reports which (if any) of the 33 job icons on this
+        page it matches - this is exactly the logic /profile uses to figure
+        out the active job's name, surfaced here for troubleshooting since
+        Lodestone doesn't expose that job's name as text anywhere."""
         resp = requests.get(
             f"{LODESTONE_BASE}/character/{lodestone_id}/class_job/",
             headers=LODESTONE_HEADERS,
@@ -528,9 +578,30 @@ class LodestoneClient:
 
         from jobs_data import JOBS
         info["job_levels"] = {}
+        info["job_icons"] = {}
         for job in JOBS:
             el = soup.select_one(job["level_selector"])
             info["job_levels"][job["key"]] = el.get_text(strip=True) if el else "(selector matched nothing)"
+            icon_selector = re.sub(r"div:nth-child\(2\)$", "div:nth-child(1) > img", job["level_selector"])
+            icon_el = soup.select_one(icon_selector)
+            info["job_icons"][job["key"]] = icon_el.get("src") if icon_el else None
+
+        try:
+            profile = self.get_character_profile(lodestone_id)
+            active_icon = profile.get("active_job_icon_src")
+        except Exception as e:
+            active_icon = None
+            info["active_icon_error"] = str(e)
+
+        info["active_icon_src"] = active_icon
+        info["active_icon_match"] = None
+        active_norm = normalize_icon_url(active_icon)
+        if active_norm:
+            for job in JOBS:
+                if normalize_icon_url(info["job_icons"].get(job["key"])) == active_norm:
+                    info["active_icon_match"] = job["key"]
+                    break
+
         return info
 
     def debug_achievement_page(self, lodestone_id):

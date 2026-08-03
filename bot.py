@@ -22,7 +22,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
-from ffxiv_api import FFLogsClient, LodestoneClient
+from ffxiv_api import FFLogsClient, LodestoneClient, normalize_icon_url
 from storage import Storage
 from jobs_data import JOBS
 from profile_card import render_profile_card
@@ -664,10 +664,23 @@ async def profile(interaction: discord.Interaction, target_user: discord.Member 
     # a Lodestone sub-page briefly blocked, etc.) the card still renders
     # with whatever we do have, rather than failing the whole command.
     try:
-        job_levels = lodestone.get_class_job_levels(char["id"], [(j["key"], j["level_selector"]) for j in JOBS])
+        job_data = lodestone.get_class_job_data(char["id"], [(j["key"], j["level_selector"]) for j in JOBS])
     except Exception as e:
         print(f"/profile: couldn't read class_job page for {char['name']}: {e}")
-        job_levels = {}
+        job_data = {}
+    job_levels = {key: v["level"] for key, v in job_data.items()}
+
+    # Lodestone doesn't label the "currently equipped job" icon (top of the
+    # profile page, next to the level) with any text - the only way to know
+    # which job it is is to match its icon image against the 33 known job
+    # icons scraped above from the class_job page.
+    active_job = None
+    active_icon_norm = normalize_icon_url(profile.get("active_job_icon_src"))
+    if active_icon_norm:
+        for j in JOBS:
+            if normalize_icon_url(job_data.get(j["key"], {}).get("icon_src")) == active_icon_norm:
+                active_job = j
+                break
 
     try:
         minion_count = lodestone.get_minion_count(char["id"])
@@ -726,9 +739,9 @@ async def profile(interaction: discord.Interaction, target_user: discord.Member 
         "portrait_url": profile.get("portrait_url"),
         "discord_avatar_url": target_user.display_avatar.url,
         "discord_username": target_user.name,
-        "job_name": profile.get("active_job_name") or "",
+        "job_name": active_job["display"] if active_job else "",
         "job_level": profile.get("active_job_level") or "?",
-        "job_icon_file": (profile.get("active_job_name") or "").lower().replace(" ", "").replace("'", "") or None,
+        "job_icon_file": active_job["icon"] if active_job else None,
         "savage_tiers": savage_tier_progress,
         "ultimates": ultimate_progress,
         "achievement_points": achievement_points,
@@ -763,8 +776,13 @@ async def debug_classjob(interaction: discord.Interaction, target_user: discord.
         return
 
     lines = [f"HTTP status: {info['status_code']}", f"URL: {info['url']}", f"HTML length: {info['html_length']}", ""]
+    lines.append(f"Active job icon src (from main profile page): {info.get('active_icon_src')!r}")
+    lines.append(f"Matched job: {info.get('active_icon_match') or '(no match found)'}")
+    if info.get("active_icon_error"):
+        lines.append(f"(error fetching active icon: {info['active_icon_error']})")
+    lines.append("")
     for key, value in info["job_levels"].items():
-        lines.append(f"• {key}: {value!r}")
+        lines.append(f"• {key}: level={value!r} icon={info['job_icons'].get(key)!r}")
 
     text = "\n".join(lines)
     if len(text) > 1900:
