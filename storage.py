@@ -61,6 +61,22 @@ class Storage:
             data = self._read()
             return data.get("verified", {}).get(str(discord_id))
 
+    def find_discord_id_by_character(self, name, server):
+        """Reverse lookup: given a character's name+server, find the Discord
+        user id that registered them via /register, or None if nobody has.
+        Used by the party-finder-full webhook (see party_api.py) to know
+        who to ping - a linear scan is fine here since this data set is
+        small (one guild's worth of registered characters)."""
+        target_name = name.strip().lower()
+        target_server = server.strip().lower()
+        with _LOCK:
+            data = self._read()
+            for discord_id, char in data.get("verified", {}).items():
+                if (char.get("name", "").strip().lower() == target_name
+                        and char.get("server", "").strip().lower() == target_server):
+                    return int(discord_id)
+        return None
+
     def set_reaction_message(self, message_id, group_key):
         with _LOCK:
             data = self._read()

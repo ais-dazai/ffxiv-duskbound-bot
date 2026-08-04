@@ -6,6 +6,11 @@ Discord bot that:
    (named "profile" and not "me" because Discord's client already has a built-in "/me" command
    that would otherwise shadow ours in the command picker)
 
+Also runs a tiny HTTP API (see party_api.py) alongside the bot, so a
+companion Dalamud plugin (in players' game clients) can tell us when a
+player's Party Finder listing fills up - we then ping them, in a
+configured channel, IF they've linked their character via /register.
+
 Required environment variables are explained in README.md and .env.example.
 """
 
@@ -26,6 +31,7 @@ from ffxiv_api import FFLogsClient, LodestoneClient, normalize_icon_url
 from storage import Storage
 from jobs_data import JOBS
 from profile_card import render_profile_card
+from party_api import start_party_api
 
 load_dotenv()
 
@@ -403,11 +409,22 @@ async def giveaway_reroll_error(interaction: discord.Interaction, error):
         raise error
 
 
+party_api_runner = None
+
+
 @bot.event
 async def on_ready():
     await bot.tree.sync()
     if not check_giveaways.is_running():
         check_giveaways.start()
+
+    global party_api_runner
+    if party_api_runner is None:
+        # on_ready can fire more than once (e.g. after a gateway
+        # reconnect), so guard against starting a second HTTP server on
+        # the same port, which would crash with an "address in use" error.
+        party_api_runner = await start_party_api(bot, storage)
+
     print(f"Bot logged in as {bot.user}")
 
 
